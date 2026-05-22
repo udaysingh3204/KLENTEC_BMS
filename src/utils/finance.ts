@@ -33,7 +33,7 @@ export function isPositiveInteger(value: number) {
 }
 
 export function formatCurrency(value: number) {
-  return `NGN ${normalizeMoney(value).toLocaleString()}`;
+  return `₹${normalizeMoney(value).toLocaleString('en-IN')}`;
 }
 
 export function calculateInvoiceTotal(unitPrice: number, quantity: number) {

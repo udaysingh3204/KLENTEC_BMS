@@ -115,3 +115,22 @@ export type ExpenseEntry = {
   paymentMode: PaymentMode;
   createdAt: string;
 };
+
+export type AttendanceStatus = 'Present' | 'Absent' | 'Half Day';
+
+export type Employee = {
+  id: string;
+  name: string;
+  phone: string;
+  role: string;
+  salary: number;
+  status: 'Active' | 'Inactive';
+};
+
+export type AttendanceRecord = {
+  id: string;
+  employeeId: string;
+  employeeName: string;
+  date: string;
+  status: AttendanceStatus;
+};

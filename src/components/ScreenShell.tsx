@@ -13,7 +13,7 @@ type ScreenShellProps = PropsWithChildren<{
 export function ScreenShell({ action, children, subtitle, title }: ScreenShellProps) {
   return (
     <SafeAreaView style={styles.safeArea}>
-      <ScrollView contentContainerStyle={styles.content}>
+      <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
         <View style={styles.header}>
           <View style={styles.headerCopy}>
             <Text style={styles.title}>{title}</Text>
@@ -33,28 +33,30 @@ const styles = StyleSheet.create({
     backgroundColor: theme.colors.background,
   },
   content: {
-    padding: 20,
+    padding: 16,
     paddingBottom: 36,
-    gap: 16,
+    gap: 14,
   },
   header: {
     flexDirection: 'row',
     alignItems: 'flex-start',
     justifyContent: 'space-between',
     gap: 16,
+    paddingVertical: 8,
   },
   headerCopy: {
     flex: 1,
   },
   title: {
-    color: theme.colors.text,
-    fontSize: 28,
+    color: theme.colors.primary,
+    fontSize: 26,
     fontWeight: '800',
+    letterSpacing: -0.5,
   },
   subtitle: {
-    marginTop: 6,
+    marginTop: 4,
     color: theme.colors.muted,
-    fontSize: 14,
-    lineHeight: 20,
+    fontSize: 13,
+    lineHeight: 19,
   },
 });

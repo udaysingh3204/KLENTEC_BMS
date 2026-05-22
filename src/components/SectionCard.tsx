@@ -21,21 +21,26 @@ export function SectionCard({ children, description, title }: SectionCardProps) 
 const styles = StyleSheet.create({
   card: {
     backgroundColor: theme.colors.panel,
-    borderRadius: 24,
-    padding: 18,
+    borderRadius: 16,
+    padding: 16,
     borderWidth: 1,
     borderColor: theme.colors.border,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.06,
+    shadowRadius: 4,
+    elevation: 2,
   },
   title: {
     color: theme.colors.text,
-    fontSize: 18,
-    fontWeight: '800',
+    fontSize: 16,
+    fontWeight: '700',
   },
   description: {
     color: theme.colors.muted,
-    fontSize: 14,
-    lineHeight: 20,
-    marginTop: 6,
+    fontSize: 13,
+    lineHeight: 18,
+    marginTop: 4,
   },
   body: {
     marginTop: 12,

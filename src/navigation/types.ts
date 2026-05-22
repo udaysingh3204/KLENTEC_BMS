@@ -8,4 +8,5 @@ export type RootStackParamList = {
   CashFlow: undefined;
   Reports: undefined;
   Deliveries: undefined;
+  Employees: undefined;
 };

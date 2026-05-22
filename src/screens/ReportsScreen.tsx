@@ -19,66 +19,87 @@ export function ReportsScreen({ navigation }: Props) {
 
   const totalSales = sumInvoiceTotals(invoices);
   const totalExpenses = sumExpenseAmounts(expenses);
+  const cashInHand = totalSales - totalExpenses;
+  const isProfit = cashInHand >= 0;
   const lowStockProducts = products.filter((product) => product.stockLeft <= product.minimumStock);
   const deliveredCount = deliveries.filter((delivery) => delivery.status === 'Delivered').length;
   const paymentTotals = buildPaymentTotals(invoices);
+  const date = new Date().toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
 
   return (
     <ScreenShell
       title="Daily Reports"
-      subtitle="End-of-day operational summary across sales, expenses, stock movement, and payment modes."
+      subtitle={`End-of-day summary · ${date}`}
       action={
-        <Pressable onPress={() => navigation.goBack()} style={styles.actionButton}>
-          <Text style={styles.actionButtonText}>Back</Text>
+        <Pressable onPress={() => navigation.goBack()} style={styles.backButton}>
+          <Text style={styles.backButtonText}>← Back</Text>
         </Pressable>
       }
     >
-      <SectionCard title="Summary" description="Core management snapshot for daily review and reprint.">
+      <View style={[styles.cashInHandCard, isProfit ? styles.profitCard : styles.lossCard]}>
+        <Text style={styles.cashInHandLabel}>Cash In Hand</Text>
+        <Text style={[styles.cashInHandValue, { color: isProfit ? theme.colors.positive : theme.colors.negative }]}>
+          {formatCurrency(cashInHand)}
+        </Text>
+        <Text style={styles.cashInHandSub}>
+          Sales {formatCurrency(totalSales)} · Expenses {formatCurrency(totalExpenses)}
+        </Text>
+      </View>
+
+      <SectionCard title="Summary" description="Core management snapshot for daily review.">
         <View style={styles.row}>
-          <Text style={styles.label}>Sales</Text>
-          <Text style={styles.value}>{formatCurrency(totalSales)}</Text>
+          <Text style={styles.label}>Total Sales</Text>
+          <Text style={[styles.value, { color: theme.colors.positive }]}>{formatCurrency(totalSales)}</Text>
         </View>
         <View style={styles.row}>
-          <Text style={styles.label}>Expenses</Text>
-          <Text style={styles.value}>{formatCurrency(totalExpenses)}</Text>
+          <Text style={styles.label}>Total Expenses</Text>
+          <Text style={[styles.value, { color: theme.colors.negative }]}>{formatCurrency(totalExpenses)}</Text>
         </View>
         <View style={styles.row}>
-          <Text style={styles.label}>Cash in hand</Text>
-          <Text style={styles.value}>{formatCurrency(totalSales - totalExpenses)}</Text>
+          <Text style={styles.label}>Cash In Hand</Text>
+          <Text style={[styles.value, { color: isProfit ? theme.colors.positive : theme.colors.negative }]}>
+            {formatCurrency(cashInHand)}
+          </Text>
         </View>
         <View style={styles.row}>
-          <Text style={styles.label}>Delivered jobs</Text>
+          <Text style={styles.label}>Deliveries completed</Text>
           <Text style={styles.value}>{String(deliveredCount)}</Text>
         </View>
       </SectionCard>
 
-      <SectionCard title="Payment mode breakup" description="Required split across Cash, UPI, and Credit.">
+      <SectionCard title="Payment Mode Breakup" description="Split across Cash, UPI, and Credit.">
         <View style={styles.row}>
           <Text style={styles.label}>Cash</Text>
-          <Text style={styles.value}>{formatCurrency(paymentTotals.Cash)}</Text>
+          <Text style={[styles.value, { color: theme.colors.positive }]}>{formatCurrency(paymentTotals.Cash)}</Text>
         </View>
         <View style={styles.row}>
           <Text style={styles.label}>UPI</Text>
-          <Text style={styles.value}>{formatCurrency(paymentTotals.UPI)}</Text>
+          <Text style={[styles.value, { color: theme.colors.primary }]}>{formatCurrency(paymentTotals.UPI)}</Text>
         </View>
         <View style={styles.row}>
           <Text style={styles.label}>Credit</Text>
-          <Text style={styles.value}>{formatCurrency(paymentTotals.Credit)}</Text>
+          <Text style={[styles.value, { color: theme.colors.negative }]}>{formatCurrency(paymentTotals.Credit)}</Text>
         </View>
       </SectionCard>
 
-      <SectionCard title="Attention items" description="Operational items that still need follow-up before close of business.">
+      <SectionCard title="Attention Items" description="Follow-up items before close of business.">
         <View style={styles.row}>
           <Text style={styles.label}>Low stock products</Text>
-          <Text style={styles.value}>{String(lowStockProducts.length)}</Text>
+          <Text style={[styles.value, lowStockProducts.length > 0 ? { color: theme.colors.negative } : { color: theme.colors.positive }]}>
+            {String(lowStockProducts.length)}
+          </Text>
         </View>
         <View style={styles.row}>
           <Text style={styles.label}>Customers on credit</Text>
-          <Text style={styles.value}>{String(customers.filter((customer) => customer.outstandingBalance > 0).length)}</Text>
+          <Text style={[styles.value, { color: theme.colors.negative }]}>
+            {String(customers.filter((c) => c.outstandingBalance > 0).length)}
+          </Text>
         </View>
         <View style={styles.row}>
           <Text style={styles.label}>Pending deliveries</Text>
-          <Text style={styles.value}>{String(deliveries.filter((delivery) => delivery.status !== 'Delivered').length)}</Text>
+          <Text style={[styles.value, { color: theme.colors.warning }]}>
+            {String(deliveries.filter((d) => d.status !== 'Delivered').length)}
+          </Text>
         </View>
       </SectionCard>
     </ScreenShell>
@@ -86,35 +107,67 @@ export function ReportsScreen({ navigation }: Props) {
 }
 
 const styles = StyleSheet.create({
-  actionButton: {
+  backButton: {
     paddingHorizontal: 12,
-    paddingVertical: 10,
-    borderRadius: 14,
+    paddingVertical: 9,
+    borderRadius: 10,
     backgroundColor: theme.colors.panelRaised,
     borderWidth: 1,
     borderColor: theme.colors.border,
   },
-  actionButtonText: {
-    color: theme.colors.text,
+  backButtonText: {
+    color: theme.colors.primary,
     fontSize: 13,
     fontWeight: '700',
+  },
+  cashInHandCard: {
+    borderRadius: 16,
+    padding: 20,
+    borderWidth: 1,
+    alignItems: 'center',
+    gap: 4,
+  },
+  profitCard: {
+    backgroundColor: '#F0FDF4',
+    borderColor: '#BBF7D0',
+  },
+  lossCard: {
+    backgroundColor: '#FFF5F5',
+    borderColor: '#FECACA',
+  },
+  cashInHandLabel: {
+    color: theme.colors.muted,
+    fontSize: 12,
+    fontWeight: '600',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  cashInHandValue: {
+    fontSize: 32,
+    fontWeight: '800',
+  },
+  cashInHandSub: {
+    color: theme.colors.muted,
+    fontSize: 12,
+    marginTop: 4,
   },
   row: {
     flexDirection: 'row',
     justifyContent: 'space-between',
+    alignItems: 'center',
     gap: 16,
-    paddingVertical: 12,
+    paddingVertical: 11,
     borderBottomWidth: 1,
     borderBottomColor: theme.colors.border,
   },
   label: {
     color: theme.colors.muted,
     fontSize: 14,
-    fontWeight: '600',
+    fontWeight: '500',
   },
   value: {
     color: theme.colors.text,
-    fontSize: 15,
+    fontSize: 14,
     fontWeight: '700',
   },
 });

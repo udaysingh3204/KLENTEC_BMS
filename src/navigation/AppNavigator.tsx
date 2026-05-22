@@ -9,6 +9,7 @@ import { BillingScreen } from '../screens/BillingScreen';
 import { CashFlowScreen } from '../screens/CashFlowScreen';
 import { CustomersScreen } from '../screens/CustomersScreen';
 import { DeliveriesScreen } from '../screens/DeliveriesScreen';
+import { EmployeeScreen } from '../screens/EmployeeScreen';
 import { InventoryScreen } from '../screens/InventoryScreen';
 import { LoginScreen } from '../screens/LoginScreen';
 import { ReportsScreen } from '../screens/ReportsScreen';
@@ -31,17 +32,17 @@ export function AppNavigator() {
   if (!isReady) {
     return (
       <View style={styles.loadingScreen}>
-        <StatusBar style="light" />
-        <ActivityIndicator size="large" color={theme.colors.accent} />
-        <Text style={styles.loadingTitle}>Preparing local workspace</Text>
-        <Text style={styles.loadingCopy}>Opening the offline database and restoring client records.</Text>
+        <StatusBar style="dark" />
+        <ActivityIndicator size="large" color={theme.colors.primary} />
+        <Text style={styles.loadingTitle}>KLENTEC BMS</Text>
+        <Text style={styles.loadingCopy}>Loading your offline workspace…</Text>
       </View>
     );
   }
 
   return (
     <NavigationContainer>
-      <StatusBar style="light" />
+      <StatusBar style="dark" />
       <Stack.Navigator
         screenOptions={{
           headerShown: false,
@@ -58,6 +59,7 @@ export function AppNavigator() {
             <Stack.Screen name="CashFlow" component={CashFlowScreen} />
             <Stack.Screen name="Reports" component={ReportsScreen} />
             <Stack.Screen name="Deliveries" component={DeliveriesScreen} />
+            <Stack.Screen name="Employees" component={EmployeeScreen} />
           </>
         ) : (
           <Stack.Screen name="Login" component={LoginScreen} />
@@ -72,14 +74,15 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 14,
+    gap: 12,
     paddingHorizontal: 24,
     backgroundColor: theme.colors.background,
   },
   loadingTitle: {
-    color: theme.colors.text,
-    fontSize: 20,
+    color: theme.colors.primary,
+    fontSize: 22,
     fontWeight: '800',
+    letterSpacing: -0.5,
   },
   loadingCopy: {
     color: theme.colors.muted,

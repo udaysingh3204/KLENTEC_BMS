@@ -30,6 +30,7 @@ export function CashFlowScreen({ navigation }: Props) {
   const totalIncome = useMemo(() => sumInvoiceTotals(invoices), [invoices]);
   const totalExpense = useMemo(() => sumExpenseAmounts(expenses), [expenses]);
   const netBalance = totalIncome - totalExpense;
+  const isProfit = netBalance >= 0;
 
   const handleAddExpense = () => {
     if (!parsedAmount) {
@@ -59,32 +60,44 @@ export function CashFlowScreen({ navigation }: Props) {
   return (
     <ScreenShell
       title="Cash Flow"
-      subtitle="Track income against expenses and keep the daily balance visible to the admin team."
+      subtitle="Track income against expenses and keep the daily balance visible."
       action={
-        <Pressable onPress={() => navigation.goBack()} style={styles.actionButton}>
-          <Text style={styles.actionButtonText}>Back</Text>
+        <Pressable onPress={() => navigation.goBack()} style={styles.backButton}>
+          <Text style={styles.backButtonText}>← Back</Text>
         </Pressable>
       }
     >
-      <SectionCard title="Daily summary" description="Income minus expenses gives the current net balance.">
+      <View style={[styles.netBalanceCard, isProfit ? styles.netBalanceProfit : styles.netBalanceLoss]}>
+        <Text style={styles.netBalanceLabel}>Net Balance</Text>
+        <Text style={[styles.netBalanceValue, { color: isProfit ? theme.colors.positive : theme.colors.negative }]}>
+          {formatCurrency(netBalance)}
+        </Text>
+        <Text style={styles.netBalanceSub}>
+          Income {formatCurrency(totalIncome)} · Expenses {formatCurrency(totalExpense)}
+        </Text>
+      </View>
+
+      <SectionCard title="Daily Summary" description="Income minus expenses gives the current net balance.">
         <View style={styles.row}>
-          <Text style={styles.label}>Income</Text>
-          <Text style={styles.value}>{formatCurrency(totalIncome)}</Text>
+          <Text style={styles.label}>Total Income</Text>
+          <Text style={[styles.value, { color: theme.colors.positive }]}>{formatCurrency(totalIncome)}</Text>
         </View>
         <View style={styles.row}>
-          <Text style={styles.label}>Expenses</Text>
-          <Text style={styles.value}>{formatCurrency(totalExpense)}</Text>
+          <Text style={styles.label}>Total Expenses</Text>
+          <Text style={[styles.value, { color: theme.colors.negative }]}>{formatCurrency(totalExpense)}</Text>
         </View>
         <View style={styles.row}>
-          <Text style={styles.label}>Net balance</Text>
-          <Text style={styles.value}>{formatCurrency(netBalance)}</Text>
+          <Text style={styles.label}>Net Balance</Text>
+          <Text style={[styles.value, { color: isProfit ? theme.colors.positive : theme.colors.negative }]}>
+            {formatCurrency(netBalance)}
+          </Text>
         </View>
       </SectionCard>
 
-      <SectionCard title="Record expense" description="Expense capture feeds directly into the cash flow ledger.">
-        <TextInput value={title} onChangeText={setTitle} placeholder="Expense title" placeholderTextColor={theme.colors.muted} style={styles.input} />
-        <TextInput value={amount} onChangeText={setAmount} keyboardType="numeric" placeholder="Amount" placeholderTextColor={theme.colors.muted} style={styles.input} />
-        <Text style={styles.helperText}>Use whole naira amounts to keep the daily ledger exact.</Text>
+      <SectionCard title="Record Expense" description="Expense capture feeds directly into the cash flow ledger.">
+        <TextInput value={title} onChangeText={setTitle} placeholder="Expense description" placeholderTextColor={theme.colors.muted} style={styles.input} />
+        <TextInput value={amount} onChangeText={setAmount} keyboardType="numeric" placeholder="Amount (₹)" placeholderTextColor={theme.colors.muted} style={styles.input} />
+        <Text style={styles.helperText}>Enter whole rupee amounts to keep the daily ledger exact.</Text>
 
         <Text style={styles.groupLabel}>Category</Text>
         <View style={styles.chipWrap}>
@@ -94,12 +107,12 @@ export function CashFlowScreen({ navigation }: Props) {
               onPress={() => setCategory(entry)}
               style={[styles.chip, category === entry ? styles.chipActive : null]}
             >
-              <Text style={styles.chipText}>{entry}</Text>
+              <Text style={[styles.chipText, category === entry ? styles.chipTextActive : null]}>{entry}</Text>
             </Pressable>
           ))}
         </View>
 
-        <Text style={styles.groupLabel}>Payment mode</Text>
+        <Text style={styles.groupLabel}>Payment Mode</Text>
         <View style={styles.chipWrap}>
           {paymentModes.map((entry) => (
             <Pressable
@@ -107,25 +120,25 @@ export function CashFlowScreen({ navigation }: Props) {
               onPress={() => setPaymentMode(entry)}
               style={[styles.chip, paymentMode === entry ? styles.chipActive : null]}
             >
-              <Text style={styles.chipText}>{entry}</Text>
+              <Text style={[styles.chipText, paymentMode === entry ? styles.chipTextActive : null]}>{entry}</Text>
             </Pressable>
           ))}
         </View>
 
         {error ? <Text style={styles.error}>{error}</Text> : null}
         <Pressable onPress={handleAddExpense} style={styles.primaryButton}>
-          <Text style={styles.primaryButtonText}>Save expense</Text>
+          <Text style={styles.primaryButtonText}>Save Expense</Text>
         </Pressable>
       </SectionCard>
 
-      <SectionCard title="Expense ledger" description="Latest outgoing transactions across shop operations.">
+      <SectionCard title="Expense Ledger" description="Latest outgoing transactions across shop operations.">
         {expenses.slice(0, 8).map((expense) => (
           <View key={expense.id} style={styles.row}>
             <View style={styles.entryCopy}>
               <Text style={styles.value}>{expense.title}</Text>
-              <Text style={styles.meta}>{expense.category} • {expense.paymentMode}</Text>
+              <Text style={styles.meta}>{expense.category} · {expense.paymentMode}</Text>
             </View>
-            <Text style={styles.value}>{formatCurrency(expense.amount)}</Text>
+            <Text style={[styles.value, { color: theme.colors.negative }]}>{formatCurrency(expense.amount)}</Text>
           </View>
         ))}
       </SectionCard>
@@ -134,42 +147,75 @@ export function CashFlowScreen({ navigation }: Props) {
 }
 
 const styles = StyleSheet.create({
-  actionButton: {
+  backButton: {
     paddingHorizontal: 12,
-    paddingVertical: 10,
-    borderRadius: 14,
+    paddingVertical: 9,
+    borderRadius: 10,
     backgroundColor: theme.colors.panelRaised,
     borderWidth: 1,
     borderColor: theme.colors.border,
   },
-  actionButtonText: {
-    color: theme.colors.text,
+  backButtonText: {
+    color: theme.colors.primary,
     fontSize: 13,
     fontWeight: '700',
   },
+  netBalanceCard: {
+    borderRadius: 16,
+    padding: 20,
+    borderWidth: 1,
+    alignItems: 'center',
+    gap: 4,
+  },
+  netBalanceProfit: {
+    backgroundColor: '#F0FDF4',
+    borderColor: '#BBF7D0',
+  },
+  netBalanceLoss: {
+    backgroundColor: '#FFF5F5',
+    borderColor: '#FECACA',
+  },
+  netBalanceLabel: {
+    color: theme.colors.muted,
+    fontSize: 12,
+    fontWeight: '600',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  netBalanceValue: {
+    fontSize: 32,
+    fontWeight: '800',
+  },
+  netBalanceSub: {
+    color: theme.colors.muted,
+    fontSize: 12,
+    marginTop: 4,
+  },
   input: {
     marginTop: 10,
-    borderRadius: 14,
-    borderWidth: 1,
+    borderRadius: 10,
+    borderWidth: 1.5,
     borderColor: theme.colors.border,
     backgroundColor: theme.colors.panelRaised,
     color: theme.colors.text,
     paddingHorizontal: 14,
-    paddingVertical: 13,
+    paddingVertical: 12,
     fontSize: 15,
   },
   helperText: {
-    marginTop: 8,
+    marginTop: 6,
     color: theme.colors.muted,
     fontSize: 12,
-    fontWeight: '600',
+    fontWeight: '500',
   },
   groupLabel: {
     marginTop: 14,
     marginBottom: 8,
     color: theme.colors.text,
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: '700',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
   },
   chipWrap: {
     flexDirection: 'row',
@@ -177,63 +223,67 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   chip: {
-    borderRadius: 999,
-    borderWidth: 1,
+    borderRadius: 8,
+    borderWidth: 1.5,
     borderColor: theme.colors.border,
     backgroundColor: theme.colors.panelRaised,
     paddingHorizontal: 12,
-    paddingVertical: 9,
+    paddingVertical: 8,
   },
   chipActive: {
-    borderColor: theme.colors.accent,
-    backgroundColor: '#204248',
+    borderColor: theme.colors.primary,
+    backgroundColor: theme.colors.primaryLight,
   },
   chipText: {
-    color: theme.colors.text,
+    color: theme.colors.muted,
     fontSize: 13,
-    fontWeight: '700',
+    fontWeight: '600',
+  },
+  chipTextActive: {
+    color: theme.colors.primary,
   },
   row: {
     flexDirection: 'row',
     justifyContent: 'space-between',
+    alignItems: 'center',
     gap: 16,
-    paddingVertical: 12,
+    paddingVertical: 11,
     borderBottomWidth: 1,
     borderBottomColor: theme.colors.border,
   },
   label: {
     color: theme.colors.muted,
     fontSize: 14,
-    fontWeight: '600',
+    fontWeight: '500',
   },
   value: {
     color: theme.colors.text,
-    fontSize: 15,
+    fontSize: 14,
     fontWeight: '700',
   },
   meta: {
-    marginTop: 4,
+    marginTop: 3,
     color: theme.colors.muted,
-    fontSize: 13,
+    fontSize: 12,
   },
   entryCopy: {
     flex: 1,
   },
   error: {
     marginTop: 10,
-    color: theme.colors.warning,
+    color: theme.colors.negative,
     fontSize: 13,
     fontWeight: '600',
   },
   primaryButton: {
     marginTop: 14,
-    borderRadius: 16,
+    borderRadius: 12,
     backgroundColor: theme.colors.accent,
     paddingVertical: 14,
     alignItems: 'center',
   },
   primaryButtonText: {
-    color: theme.colors.background,
+    color: '#FFFFFF',
     fontSize: 15,
     fontWeight: '800',
   },

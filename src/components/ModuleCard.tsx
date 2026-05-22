@@ -7,24 +7,21 @@ type ModuleCardProps = {
   moduleDefinition: ModuleDefinition;
 };
 
-const statusPalette = {
-  planned: '#3D6B75',
-  'in-progress': '#F4A259',
-  ready: '#78D08B',
-} as const;
+const statusPalette: Record<ModuleDefinition['status'], { bg: string; text: string; label: string }> = {
+  planned: { bg: '#EEF1F8', text: theme.colors.muted, label: 'Planned' },
+  'in-progress': { bg: '#FFF7ED', text: '#C2410C', label: 'In Progress' },
+  ready: { bg: '#F0FDF4', text: '#15803D', label: 'Ready' },
+};
 
 export function ModuleCard({ moduleDefinition }: ModuleCardProps) {
+  const palette = statusPalette[moduleDefinition.status];
+
   return (
     <View style={styles.card}>
       <View style={styles.header}>
         <Text style={styles.id}>{moduleDefinition.id}</Text>
-        <Text
-          style={[
-            styles.status,
-            { backgroundColor: statusPalette[moduleDefinition.status] },
-          ]}
-        >
-          {moduleDefinition.status}
+        <Text style={[styles.status, { backgroundColor: palette.bg, color: palette.text }]}>
+          {palette.label}
         </Text>
       </View>
       <Text style={styles.title}>{moduleDefinition.title}</Text>
@@ -36,12 +33,17 @@ export function ModuleCard({ moduleDefinition }: ModuleCardProps) {
 
 const styles = StyleSheet.create({
   card: {
-    backgroundColor: theme.colors.panelRaised,
-    borderRadius: 22,
-    padding: 16,
-    gap: 8,
+    backgroundColor: theme.colors.panel,
+    borderRadius: 14,
+    padding: 14,
+    gap: 6,
     borderWidth: 1,
     borderColor: theme.colors.border,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 3,
+    elevation: 1,
   },
   header: {
     flexDirection: 'row',
@@ -49,34 +51,32 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
   },
   id: {
-    color: theme.colors.accent,
-    fontSize: 12,
+    color: theme.colors.primary,
+    fontSize: 11,
     fontWeight: '800',
     letterSpacing: 1,
   },
   status: {
-    color: '#0D1B1E',
     fontSize: 11,
-    fontWeight: '800',
-    textTransform: 'uppercase',
+    fontWeight: '700',
     borderRadius: 999,
-    paddingHorizontal: 10,
-    paddingVertical: 5,
+    paddingHorizontal: 9,
+    paddingVertical: 4,
     overflow: 'hidden',
   },
   title: {
     color: theme.colors.text,
-    fontSize: 17,
-    fontWeight: '800',
+    fontSize: 15,
+    fontWeight: '700',
   },
   owner: {
-    color: theme.colors.warning,
-    fontSize: 13,
-    fontWeight: '700',
+    color: theme.colors.primary,
+    fontSize: 12,
+    fontWeight: '600',
   },
   description: {
     color: theme.colors.muted,
-    fontSize: 14,
-    lineHeight: 20,
+    fontSize: 13,
+    lineHeight: 18,
   },
 });

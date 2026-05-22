@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 
 import { ScreenShell } from '../components/ScreenShell';
@@ -8,106 +8,173 @@ import { RootStackParamList } from '../navigation/types';
 import { useAppStore } from '../store/useAppStore';
 import { theme } from '../theme';
 import { PaymentMode } from '../types';
-import { calculateInvoiceTotal, formatCurrency, parseWholeNumberInput } from '../utils/finance';
+import { formatCurrency, parseWholeNumberInput } from '../utils/finance';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Billing'>;
 
 const paymentModes: PaymentMode[] = ['Cash', 'UPI', 'Credit'];
 
+type DraftLine = { lineId: string; productId: string; quantity: string };
+
+const makeLineId = () => `l-${Date.now()}-${Math.random().toString(36).slice(2, 5)}`;
+
 export function BillingScreen({ navigation }: Props) {
-  const createInvoice = useAppStore((state) => state.createInvoice);
-  const customers = useAppStore((state) => state.customers);
-  const invoices = useAppStore((state) => state.invoices);
-  const products = useAppStore((state) => state.products);
+  const createInvoice = useAppStore((s) => s.createInvoice);
+  const customers = useAppStore((s) => s.customers);
+  const invoices = useAppStore((s) => s.invoices);
+  const products = useAppStore((s) => s.products);
 
   const [customerId, setCustomerId] = useState(customers[0]?.id ?? '');
-  const [productId, setProductId] = useState(products[0]?.id ?? '');
-  const [quantity, setQuantity] = useState('1');
+  const [draftLines, setDraftLines] = useState<DraftLine[]>([
+    { lineId: makeLineId(), productId: products[0]?.id ?? '', quantity: '1' },
+  ]);
   const [paymentMode, setPaymentMode] = useState<PaymentMode>('Cash');
   const [reference, setReference] = useState('');
   const [error, setError] = useState('');
+  const [success, setSuccess] = useState('');
 
-  const selectedProduct = useMemo(
-    () => products.find((product) => product.id === productId) ?? null,
-    [productId, products]
-  );
-  const parsedQuantity = parseWholeNumberInput(quantity);
-  const previewTotal = selectedProduct && parsedQuantity ? calculateInvoiceTotal(selectedProduct.price, parsedQuantity) : 0;
+  const previewTotal = useMemo(() => {
+    return draftLines.reduce((sum, line) => {
+      const product = products.find((p) => p.id === line.productId);
+      const qty = parseWholeNumberInput(line.quantity);
+      if (!product || !qty) return sum;
+      return sum + product.price * qty;
+    }, 0);
+  }, [draftLines, products]);
+
+  const addLine = () => {
+    setDraftLines((prev) => [
+      ...prev,
+      { lineId: makeLineId(), productId: products[0]?.id ?? '', quantity: '1' },
+    ]);
+  };
+
+  const removeLine = (lineId: string) => {
+    setDraftLines((prev) => prev.filter((l) => l.lineId !== lineId));
+  };
+
+  const updateLine = (lineId: string, field: 'productId' | 'quantity', value: string) => {
+    setDraftLines((prev) =>
+      prev.map((l) => (l.lineId === lineId ? { ...l, [field]: value } : l))
+    );
+  };
 
   const handleCreateInvoice = () => {
-    if (!parsedQuantity) {
-      setError('Quantity must be a whole number greater than zero.');
-      return;
-    }
+    setError('');
+    setSuccess('');
 
-    const result = createInvoice({
-      customerId,
-      productId,
-      quantity: parsedQuantity,
-      paymentMode,
-      reference: reference || undefined,
-    });
+    const resolvedLines = draftLines.map((l) => ({
+      productId: l.productId,
+      quantity: parseWholeNumberInput(l.quantity) ?? 0,
+    }));
+
+    const result = createInvoice({ customerId, lines: resolvedLines, paymentMode, reference: reference || undefined });
 
     if (!result.success) {
       setError(result.message ?? 'Unable to create invoice.');
       return;
     }
 
-    setQuantity('1');
+    setDraftLines([{ lineId: makeLineId(), productId: products[0]?.id ?? '', quantity: '1' }]);
     setReference('');
-    setError('');
+    setSuccess('Invoice created successfully.');
+    setTimeout(() => setSuccess(''), 3000);
   };
 
   return (
     <ScreenShell
       title="Billing"
-      subtitle="Create invoices, adjust stock automatically, and tag payment modes for reporting."
+      subtitle="Create multi-item invoices, auto-deduct stock, and tag payment mode."
       action={
-        <Pressable onPress={() => navigation.goBack()} style={styles.actionButton}>
-          <Text style={styles.actionButtonText}>Back</Text>
+        <Pressable onPress={() => navigation.goBack()} style={styles.backButton}>
+          <Text style={styles.backButtonText}>← Back</Text>
         </Pressable>
       }
     >
-      <SectionCard title="New invoice" description="Single-line billing flow for the first interactive build.">
+      <SectionCard title="New Invoice" description="Add one or more items, select customer and payment mode.">
+
+        {/* Customer */}
         <Text style={styles.groupLabel}>Customer</Text>
-        <View style={styles.chipWrap}>
-          {customers.map((customer) => (
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chipWrap}>
+          {customers.map((c) => (
             <Pressable
-              key={customer.id}
-              onPress={() => setCustomerId(customer.id)}
-              style={[styles.chip, customer.id === customerId ? styles.chipActive : null]}
+              key={c.id}
+              onPress={() => setCustomerId(c.id)}
+              style={[styles.chip, c.id === customerId ? styles.chipActive : null]}
             >
-              <Text style={styles.chipText}>{customer.name}</Text>
+              <Text style={[styles.chipText, c.id === customerId ? styles.chipTextActive : null]}>
+                {c.name}
+              </Text>
             </Pressable>
           ))}
-        </View>
+        </ScrollView>
 
-        <Text style={styles.groupLabel}>Product</Text>
-        <View style={styles.chipWrap}>
-          {products.map((product) => (
-            <Pressable
-              key={product.id}
-              onPress={() => setProductId(product.id)}
-              style={[styles.chip, product.id === productId ? styles.chipActive : null]}
-            >
-              <Text style={styles.chipText}>{product.name}</Text>
-            </Pressable>
-          ))}
-        </View>
+        {/* Invoice lines */}
+        <Text style={styles.groupLabel}>Items</Text>
+        {draftLines.map((line, idx) => {
+          const selectedProduct = products.find((p) => p.id === line.productId);
+          const qty = parseWholeNumberInput(line.quantity);
+          const lineTotal = selectedProduct && qty ? selectedProduct.price * qty : 0;
 
-        <TextInput
-          value={quantity}
-          onChangeText={setQuantity}
-          keyboardType="numeric"
-          placeholder="Quantity"
-          placeholderTextColor={theme.colors.muted}
-          style={styles.input}
-        />
-        {selectedProduct ? (
-          <Text style={styles.helperText}>Available stock: {selectedProduct.stockLeft} units</Text>
-        ) : null}
+          return (
+            <View key={line.lineId} style={styles.lineCard}>
+              <View style={styles.lineHeader}>
+                <Text style={styles.lineNum}>Item {idx + 1}</Text>
+                {draftLines.length > 1 ? (
+                  <Pressable onPress={() => removeLine(line.lineId)}>
+                    <Text style={styles.removeText}>Remove</Text>
+                  </Pressable>
+                ) : null}
+              </View>
 
-        <Text style={styles.groupLabel}>Payment mode</Text>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chipWrap}>
+                {products.map((p) => (
+                  <Pressable
+                    key={p.id}
+                    onPress={() => updateLine(line.lineId, 'productId', p.id)}
+                    style={[styles.chip, p.id === line.productId ? styles.chipActive : null]}
+                  >
+                    <Text style={[styles.chipText, p.id === line.productId ? styles.chipTextActive : null]}>
+                      {p.name}
+                    </Text>
+                  </Pressable>
+                ))}
+              </ScrollView>
+
+              <View style={styles.lineInputRow}>
+                <TextInput
+                  value={line.quantity}
+                  onChangeText={(v) => updateLine(line.lineId, 'quantity', v)}
+                  keyboardType="numeric"
+                  placeholder="Qty"
+                  placeholderTextColor={theme.colors.muted}
+                  style={styles.qtyInput}
+                />
+                <View style={styles.lineTotalBox}>
+                  {selectedProduct ? (
+                    <Text style={styles.lineTotalHint}>
+                      {formatCurrency(selectedProduct.price)} × {qty ?? 0}
+                    </Text>
+                  ) : null}
+                  <Text style={styles.lineTotalValue}>{formatCurrency(lineTotal)}</Text>
+                </View>
+              </View>
+
+              {selectedProduct ? (
+                <Text style={styles.stockHint}>
+                  Available stock: {selectedProduct.stockLeft} {selectedProduct.unit}
+                </Text>
+              ) : null}
+            </View>
+          );
+        })}
+
+        <Pressable onPress={addLine} style={styles.addLineButton}>
+          <Text style={styles.addLineText}>+ Add Another Item</Text>
+        </Pressable>
+
+        {/* Payment mode */}
+        <Text style={styles.groupLabel}>Payment Mode</Text>
         <View style={styles.chipWrap}>
           {paymentModes.map((mode) => (
             <Pressable
@@ -115,7 +182,7 @@ export function BillingScreen({ navigation }: Props) {
               onPress={() => setPaymentMode(mode)}
               style={[styles.chip, mode === paymentMode ? styles.chipActive : null]}
             >
-              <Text style={styles.chipText}>{mode}</Text>
+              <Text style={[styles.chipText, mode === paymentMode ? styles.chipTextActive : null]}>{mode}</Text>
             </Pressable>
           ))}
         </View>
@@ -124,32 +191,44 @@ export function BillingScreen({ navigation }: Props) {
           <TextInput
             value={reference}
             onChangeText={setReference}
-            placeholder="UPI reference"
+            placeholder="UPI reference / transaction ID"
             placeholderTextColor={theme.colors.muted}
             style={styles.input}
           />
         ) : null}
 
-        <View style={styles.previewRow}>
-          <Text style={styles.previewLabel}>Invoice total</Text>
-          <Text style={styles.previewValue}>{formatCurrency(previewTotal)}</Text>
+        {/* Total preview */}
+        <View style={styles.totalRow}>
+          <Text style={styles.totalLabel}>Invoice Total</Text>
+          <Text style={styles.totalValue}>{formatCurrency(previewTotal)}</Text>
         </View>
+
         {error ? <Text style={styles.error}>{error}</Text> : null}
+        {success ? <Text style={styles.successText}>{success}</Text> : null}
+
         <Pressable onPress={handleCreateInvoice} style={styles.primaryButton}>
-          <Text style={styles.primaryButtonText}>Create invoice</Text>
+          <Text style={styles.primaryButtonText}>Create Invoice</Text>
         </Pressable>
       </SectionCard>
 
-      <SectionCard title="Recent invoices" description="Latest saved transactions with payment tags.">
-        {invoices.slice(0, 6).map((invoice) => (
+      {/* Recent invoices */}
+      <SectionCard title="Recent Invoices" description="Latest saved transactions with item and payment details.">
+        {invoices.length === 0 ? (
+          <Text style={styles.emptyText}>No invoices yet.</Text>
+        ) : null}
+        {invoices.slice(0, 8).map((invoice) => (
           <View key={invoice.id} style={styles.invoiceRow}>
             <View style={styles.invoiceCopy}>
-              <Text style={styles.invoiceTitle}>{invoice.customerName}</Text>
+              <Text style={styles.invoiceCustomer}>{invoice.customerName}</Text>
               <Text style={styles.invoiceMeta}>
-                {invoice.lines[0]?.productName} • Qty {invoice.lines[0]?.quantity} • {invoice.paymentMode}
+                {invoice.lines.map((l) => `${l.quantity} ${l.productName}`).join(', ')}
+              </Text>
+              <Text style={styles.invoiceDate}>
+                {new Date(invoice.createdAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}
+                {' · '}{invoice.paymentMode}
               </Text>
             </View>
-            <Text style={styles.invoiceValue}>{formatCurrency(invoice.total)}</Text>
+            <Text style={styles.invoiceTotal}>{formatCurrency(invoice.total)}</Text>
           </View>
         ))}
       </SectionCard>
@@ -158,123 +237,70 @@ export function BillingScreen({ navigation }: Props) {
 }
 
 const styles = StyleSheet.create({
-  actionButton: {
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    borderRadius: 14,
-    backgroundColor: theme.colors.panelRaised,
-    borderWidth: 1,
-    borderColor: theme.colors.border,
+  backButton: {
+    paddingHorizontal: 12, paddingVertical: 9, borderRadius: 10,
+    backgroundColor: theme.colors.panelRaised, borderWidth: 1, borderColor: theme.colors.border,
   },
-  actionButtonText: {
-    color: theme.colors.text,
-    fontSize: 13,
-    fontWeight: '700',
-  },
+  backButtonText: { color: theme.colors.primary, fontSize: 13, fontWeight: '700' },
   groupLabel: {
-    marginTop: 6,
-    marginBottom: 8,
-    color: theme.colors.text,
-    fontSize: 14,
-    fontWeight: '700',
+    marginTop: 14, marginBottom: 8, color: theme.colors.text,
+    fontSize: 13, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 0.5,
   },
-  chipWrap: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 8,
-  },
+  chipWrap: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   chip: {
-    borderRadius: 999,
-    borderWidth: 1,
-    borderColor: theme.colors.border,
-    backgroundColor: theme.colors.panelRaised,
-    paddingHorizontal: 12,
-    paddingVertical: 9,
+    borderRadius: 8, borderWidth: 1.5, borderColor: theme.colors.border,
+    backgroundColor: theme.colors.panelRaised, paddingHorizontal: 12, paddingVertical: 8,
   },
-  chipActive: {
-    borderColor: theme.colors.accent,
-    backgroundColor: '#204248',
+  chipActive: { borderColor: theme.colors.primary, backgroundColor: theme.colors.primaryLight },
+  chipText: { color: theme.colors.muted, fontSize: 13, fontWeight: '600' },
+  chipTextActive: { color: theme.colors.primary },
+  lineCard: {
+    marginTop: 10, borderRadius: 12, borderWidth: 1.5,
+    borderColor: theme.colors.border, backgroundColor: theme.colors.panelRaised, padding: 12, gap: 10,
   },
-  chipText: {
-    color: theme.colors.text,
-    fontSize: 13,
-    fontWeight: '700',
+  lineHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  lineNum: { color: theme.colors.primary, fontSize: 12, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 0.5 },
+  removeText: { color: theme.colors.negative, fontSize: 13, fontWeight: '700' },
+  lineInputRow: { flexDirection: 'row', gap: 10, alignItems: 'center' },
+  qtyInput: {
+    flex: 1, borderRadius: 10, borderWidth: 1.5, borderColor: theme.colors.border,
+    backgroundColor: theme.colors.panel, color: theme.colors.text,
+    paddingHorizontal: 14, paddingVertical: 11, fontSize: 15,
   },
+  lineTotalBox: { alignItems: 'flex-end' },
+  lineTotalHint: { color: theme.colors.muted, fontSize: 11 },
+  lineTotalValue: { color: theme.colors.text, fontSize: 16, fontWeight: '800' },
+  stockHint: { color: theme.colors.muted, fontSize: 12, fontWeight: '500' },
+  addLineButton: {
+    marginTop: 10, borderRadius: 10, borderWidth: 1.5, borderColor: theme.colors.primary,
+    borderStyle: 'dashed', paddingVertical: 12, alignItems: 'center',
+  },
+  addLineText: { color: theme.colors.primary, fontSize: 14, fontWeight: '700' },
   input: {
-    marginTop: 12,
-    borderRadius: 14,
-    borderWidth: 1,
-    borderColor: theme.colors.border,
-    backgroundColor: theme.colors.panelRaised,
-    color: theme.colors.text,
-    paddingHorizontal: 14,
-    paddingVertical: 13,
-    fontSize: 15,
+    marginTop: 10, borderRadius: 10, borderWidth: 1.5, borderColor: theme.colors.border,
+    backgroundColor: theme.colors.panelRaised, color: theme.colors.text,
+    paddingHorizontal: 14, paddingVertical: 12, fontSize: 15,
   },
-  previewRow: {
-    marginTop: 14,
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+  totalRow: {
+    marginTop: 16, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
+    backgroundColor: theme.colors.primaryLight, borderRadius: 10, paddingHorizontal: 16, paddingVertical: 14,
   },
-  helperText: {
-    marginTop: 8,
-    color: theme.colors.muted,
-    fontSize: 12,
-    fontWeight: '600',
-  },
-  previewLabel: {
-    color: theme.colors.muted,
-    fontSize: 14,
-    fontWeight: '600',
-  },
-  previewValue: {
-    color: theme.colors.text,
-    fontSize: 16,
-    fontWeight: '800',
-  },
-  error: {
-    marginTop: 10,
-    color: theme.colors.warning,
-    fontSize: 13,
-    fontWeight: '600',
-  },
+  totalLabel: { color: theme.colors.primary, fontSize: 14, fontWeight: '700' },
+  totalValue: { color: theme.colors.primary, fontSize: 22, fontWeight: '800' },
+  error: { marginTop: 10, color: theme.colors.negative, fontSize: 13, fontWeight: '600' },
+  successText: { marginTop: 10, color: theme.colors.positive, fontSize: 13, fontWeight: '700' },
   primaryButton: {
-    marginTop: 14,
-    borderRadius: 16,
-    backgroundColor: theme.colors.accent,
-    paddingVertical: 14,
-    alignItems: 'center',
+    marginTop: 14, borderRadius: 12, backgroundColor: theme.colors.accent, paddingVertical: 15, alignItems: 'center',
   },
-  primaryButtonText: {
-    color: theme.colors.background,
-    fontSize: 15,
-    fontWeight: '800',
-  },
+  primaryButtonText: { color: '#FFFFFF', fontSize: 15, fontWeight: '800' },
+  emptyText: { color: theme.colors.muted, fontSize: 14, textAlign: 'center', paddingVertical: 12 },
   invoiceRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    gap: 12,
-    paddingVertical: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: theme.colors.border,
+    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start',
+    paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: theme.colors.border, gap: 12,
   },
-  invoiceCopy: {
-    flex: 1,
-  },
-  invoiceTitle: {
-    color: theme.colors.text,
-    fontSize: 15,
-    fontWeight: '700',
-  },
-  invoiceMeta: {
-    marginTop: 4,
-    color: theme.colors.muted,
-    fontSize: 13,
-  },
-  invoiceValue: {
-    color: theme.colors.text,
-    fontSize: 14,
-    fontWeight: '800',
-  },
+  invoiceCopy: { flex: 1, gap: 3 },
+  invoiceCustomer: { color: theme.colors.text, fontSize: 14, fontWeight: '700' },
+  invoiceMeta: { color: theme.colors.muted, fontSize: 12 },
+  invoiceDate: { color: theme.colors.muted, fontSize: 11 },
+  invoiceTotal: { color: theme.colors.positive, fontSize: 15, fontWeight: '800' },
 });

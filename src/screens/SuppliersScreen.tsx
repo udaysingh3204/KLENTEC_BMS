@@ -14,8 +14,8 @@ type Props = NativeStackScreenProps<RootStackParamList, 'Suppliers'>;
 const supplierStatuses: Supplier['status'][] = ['Active', 'Inactive'];
 
 export function SuppliersScreen({ navigation }: Props) {
-  const addSupplier = useAppStore((state) => state.addSupplier);
-  const suppliers = useAppStore((state) => state.suppliers);
+  const addSupplier = useAppStore((s) => s.addSupplier);
+  const suppliers = useAppStore((s) => s.suppliers);
 
   const [name, setName] = useState('');
   const [contactPerson, setContactPerson] = useState('');
@@ -25,107 +25,125 @@ export function SuppliersScreen({ navigation }: Props) {
   const [materials, setMaterials] = useState('');
   const [status, setStatus] = useState<Supplier['status']>('Active');
   const [error, setError] = useState('');
+  const [search, setSearch] = useState('');
 
   const activeSuppliers = useMemo(
-    () => suppliers.filter((supplier) => supplier.status === 'Active').length,
+    () => suppliers.filter((s) => s.status === 'Active').length,
     [suppliers]
   );
 
+  const filtered = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    if (!q) return suppliers;
+    return suppliers.filter(
+      (s) =>
+        s.name.toLowerCase().includes(q) ||
+        s.category.toLowerCase().includes(q) ||
+        s.contactPerson.toLowerCase().includes(q) ||
+        s.materials.toLowerCase().includes(q)
+    );
+  }, [suppliers, search]);
+
   const handleSave = () => {
-    const result = addSupplier({
-      name,
-      contactPerson,
-      phone,
-      address,
-      category,
-      materials,
-      status,
-    });
-
-    if (!result.success) {
-      setError(result.message ?? 'Unable to save supplier.');
-      return;
-    }
-
-    setName('');
-    setContactPerson('');
-    setPhone('');
-    setAddress('');
-    setCategory('');
-    setMaterials('');
-    setStatus('Active');
-    setError('');
+    const result = addSupplier({ name, contactPerson, phone, address, category, materials, status });
+    if (!result.success) { setError(result.message ?? 'Unable to save.'); return; }
+    setName(''); setContactPerson(''); setPhone(''); setAddress('');
+    setCategory(''); setMaterials(''); setStatus('Active'); setError('');
   };
 
   return (
     <ScreenShell
-      title="Supplier records"
-      subtitle="Maintain trusted suppliers with contact details, material coverage, and current availability."
+      title="Suppliers"
+      subtitle="Maintain supplier contacts, materials, and availability for restocking."
       action={
         <Pressable onPress={() => navigation.goBack()} style={styles.backButton}>
-          <Text style={styles.backButtonText}>Back</Text>
+          <Text style={styles.backButtonText}>← Back</Text>
         </Pressable>
       }
     >
-      <SectionCard title="Supplier summary" description="Quick view of active partners and purchasing coverage.">
-        <View style={styles.summaryRow}>
-          <View style={styles.summaryCard}>
-            <Text style={styles.summaryLabel}>Total suppliers</Text>
-            <Text style={styles.summaryValue}>{suppliers.length}</Text>
-          </View>
-          <View style={styles.summaryCard}>
-            <Text style={styles.summaryLabel}>Active suppliers</Text>
-            <Text style={styles.summaryValue}>{activeSuppliers}</Text>
-          </View>
+      {/* Summary */}
+      <View style={styles.summaryRow}>
+        <View style={styles.summaryCard}>
+          <Text style={styles.summaryLabel}>Total</Text>
+          <Text style={styles.summaryValue}>{suppliers.length}</Text>
         </View>
-      </SectionCard>
+        <View style={[styles.summaryCard, { borderColor: '#BBF7D0', backgroundColor: '#F0FDF4' }]}>
+          <Text style={styles.summaryLabel}>Active</Text>
+          <Text style={[styles.summaryValue, { color: theme.colors.positive }]}>{activeSuppliers}</Text>
+        </View>
+      </View>
 
-      <SectionCard title="Add supplier" description="Capture the minimum details the admin team needs for restocking and follow-up.">
-        <TextInput value={name} onChangeText={setName} placeholder="Supplier name" placeholderTextColor={theme.colors.muted} style={styles.input} />
+      {/* Add supplier */}
+      <SectionCard title="Add Supplier" description="Capture supplier details for restocking and follow-up.">
+        <TextInput value={name} onChangeText={setName} placeholder="Supplier / company name" placeholderTextColor={theme.colors.muted} style={styles.input} />
         <TextInput value={contactPerson} onChangeText={setContactPerson} placeholder="Contact person" placeholderTextColor={theme.colors.muted} style={styles.input} />
-        <TextInput value={phone} onChangeText={setPhone} keyboardType="phone-pad" placeholder="Phone number" placeholderTextColor={theme.colors.muted} style={styles.input} />
+        <TextInput value={phone} onChangeText={setPhone} keyboardType="phone-pad" placeholder="Mobile number" placeholderTextColor={theme.colors.muted} style={styles.input} />
         <TextInput value={address} onChangeText={setAddress} placeholder="Address or market location" placeholderTextColor={theme.colors.muted} style={styles.input} />
-        <TextInput value={category} onChangeText={setCategory} placeholder="Primary category" placeholderTextColor={theme.colors.muted} style={styles.input} />
-        <TextInput value={materials} onChangeText={setMaterials} placeholder="Materials supplied" placeholderTextColor={theme.colors.muted} style={[styles.input, styles.multilineInput]} multiline />
+        <TextInput value={category} onChangeText={setCategory} placeholder="Primary category (e.g. Cement)" placeholderTextColor={theme.colors.muted} style={styles.input} />
+        <TextInput
+          value={materials}
+          onChangeText={setMaterials}
+          placeholder="Materials supplied"
+          placeholderTextColor={theme.colors.muted}
+          style={[styles.input, styles.multilineInput]}
+          multiline
+        />
         <View style={styles.statusRow}>
-          {supplierStatuses.map((entry) => {
-            const isSelected = status === entry;
-
-            return (
-              <Pressable
-                key={entry}
-                onPress={() => setStatus(entry)}
-                style={[styles.statusChip, isSelected ? styles.statusChipSelected : null]}
-              >
-                <Text style={[styles.statusChipText, isSelected ? styles.statusChipTextSelected : null]}>{entry}</Text>
-              </Pressable>
-            );
-          })}
+          {supplierStatuses.map((entry) => (
+            <Pressable
+              key={entry}
+              onPress={() => setStatus(entry)}
+              style={[styles.statusChip, status === entry ? styles.statusChipSelected : null]}
+            >
+              <Text style={[styles.statusChipText, status === entry ? styles.statusChipTextSelected : null]}>
+                {entry}
+              </Text>
+            </Pressable>
+          ))}
         </View>
         {error ? <Text style={styles.error}>{error}</Text> : null}
         <Pressable onPress={handleSave} style={styles.primaryButton}>
-          <Text style={styles.primaryButtonText}>Save supplier</Text>
+          <Text style={styles.primaryButtonText}>Save Supplier</Text>
         </Pressable>
       </SectionCard>
 
-      <SectionCard title="Supplier directory" description="Keep purchasing contacts easy to find during live operations.">
-        {suppliers.map((supplier) => (
+      {/* Directory with search */}
+      <SectionCard title="Supplier Directory" description="Search by name, category, or materials.">
+        <TextInput
+          value={search}
+          onChangeText={setSearch}
+          placeholder="Search suppliers…"
+          placeholderTextColor={theme.colors.muted}
+          style={styles.searchInput}
+        />
+        {filtered.length === 0 ? (
+          <Text style={styles.emptyText}>No suppliers match your search.</Text>
+        ) : null}
+        {filtered.map((supplier) => (
           <View key={supplier.id} style={styles.supplierCard}>
             <View style={styles.supplierHeader}>
               <View style={styles.supplierCopy}>
                 <Text style={styles.supplierName}>{supplier.name}</Text>
-                <Text style={styles.supplierMeta}>{supplier.category} • {supplier.contactPerson}</Text>
+                <Text style={styles.supplierMeta}>{supplier.category} · {supplier.contactPerson}</Text>
               </View>
               <View style={[styles.badge, supplier.status === 'Active' ? styles.badgeActive : styles.badgeInactive]}>
-                <Text style={styles.badgeText}>{supplier.status}</Text>
+                <Text style={[styles.badgeText, supplier.status === 'Active' ? styles.badgeTextActive : styles.badgeTextInactive]}>
+                  {supplier.status}
+                </Text>
               </View>
             </View>
-            <Text style={styles.detailLabel}>Phone</Text>
-            <Text style={styles.detailValue}>{supplier.phone}</Text>
-            <Text style={styles.detailLabel}>Address</Text>
-            <Text style={styles.detailValue}>{supplier.address}</Text>
-            <Text style={styles.detailLabel}>Materials</Text>
-            <Text style={styles.detailValue}>{supplier.materials}</Text>
+            <View style={styles.detailRow}>
+              <Text style={styles.detailLabel}>Phone</Text>
+              <Text style={styles.detailValue}>{supplier.phone}</Text>
+            </View>
+            <View style={styles.detailRow}>
+              <Text style={styles.detailLabel}>Address</Text>
+              <Text style={styles.detailValue}>{supplier.address}</Text>
+            </View>
+            <View style={styles.detailRow}>
+              <Text style={styles.detailLabel}>Materials</Text>
+              <Text style={styles.detailValue}>{supplier.materials}</Text>
+            </View>
           </View>
         ))}
       </SectionCard>
@@ -134,154 +152,54 @@ export function SuppliersScreen({ navigation }: Props) {
 }
 
 const styles = StyleSheet.create({
-  summaryRow: {
-    flexDirection: 'row',
-    gap: 12,
-  },
-  summaryCard: {
-    flex: 1,
-    padding: 16,
-    borderRadius: 18,
-    backgroundColor: theme.colors.panelRaised,
-    borderWidth: 1,
-    borderColor: theme.colors.border,
-    gap: 8,
-  },
-  summaryLabel: {
-    color: theme.colors.muted,
-    fontSize: 13,
-    fontWeight: '600',
-  },
-  summaryValue: {
-    color: theme.colors.text,
-    fontSize: 24,
-    fontWeight: '800',
-  },
-  input: {
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: theme.colors.border,
-    paddingHorizontal: 14,
-    paddingVertical: 14,
-    marginBottom: 12,
-    color: theme.colors.text,
-    backgroundColor: theme.colors.panelRaised,
-  },
-  multilineInput: {
-    minHeight: 92,
-    textAlignVertical: 'top',
-  },
-  statusRow: {
-    flexDirection: 'row',
-    gap: 10,
-    marginBottom: 12,
-  },
-  statusChip: {
-    flex: 1,
-    paddingVertical: 12,
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: theme.colors.border,
-    backgroundColor: theme.colors.panelRaised,
-    alignItems: 'center',
-  },
-  statusChipSelected: {
-    borderColor: theme.colors.accent,
-    backgroundColor: theme.colors.badge,
-  },
-  statusChipText: {
-    color: theme.colors.muted,
-    fontSize: 13,
-    fontWeight: '700',
-  },
-  statusChipTextSelected: {
-    color: theme.colors.text,
-  },
-  error: {
-    marginBottom: 12,
-    color: theme.colors.warning,
-    fontSize: 13,
-    fontWeight: '600',
-  },
-  primaryButton: {
-    borderRadius: 16,
-    paddingVertical: 14,
-    alignItems: 'center',
-    backgroundColor: theme.colors.accent,
-  },
-  primaryButtonText: {
-    color: theme.colors.background,
-    fontSize: 15,
-    fontWeight: '800',
-  },
   backButton: {
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    borderRadius: 14,
-    backgroundColor: theme.colors.panelRaised,
-    borderWidth: 1,
-    borderColor: theme.colors.border,
+    paddingHorizontal: 12, paddingVertical: 9, borderRadius: 10,
+    backgroundColor: theme.colors.panelRaised, borderWidth: 1, borderColor: theme.colors.border,
   },
-  backButtonText: {
-    color: theme.colors.text,
-    fontSize: 13,
-    fontWeight: '700',
+  backButtonText: { color: theme.colors.primary, fontSize: 13, fontWeight: '700' },
+  summaryRow: { flexDirection: 'row', gap: 10 },
+  summaryCard: {
+    flex: 1, padding: 16, borderRadius: 14, backgroundColor: theme.colors.panel,
+    borderWidth: 1, borderColor: theme.colors.border, gap: 4,
+    shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.06, shadowRadius: 4, elevation: 2,
   },
-  supplierCard: {
-    paddingVertical: 14,
-    borderBottomWidth: 1,
-    borderBottomColor: theme.colors.border,
-    gap: 6,
+  summaryLabel: { color: theme.colors.muted, fontSize: 12, fontWeight: '600', textTransform: 'uppercase', letterSpacing: 0.5 },
+  summaryValue: { color: theme.colors.text, fontSize: 26, fontWeight: '800' },
+  input: {
+    borderRadius: 10, borderWidth: 1.5, borderColor: theme.colors.border,
+    paddingHorizontal: 14, paddingVertical: 12, marginBottom: 10,
+    color: theme.colors.text, backgroundColor: theme.colors.panelRaised, fontSize: 15,
   },
-  supplierHeader: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    justifyContent: 'space-between',
-    gap: 12,
+  multilineInput: { minHeight: 88, textAlignVertical: 'top' },
+  statusRow: { flexDirection: 'row', gap: 10, marginBottom: 12 },
+  statusChip: {
+    flex: 1, paddingVertical: 12, borderRadius: 10, borderWidth: 1.5,
+    borderColor: theme.colors.border, backgroundColor: theme.colors.panelRaised, alignItems: 'center',
   },
-  supplierCopy: {
-    flex: 1,
-    gap: 4,
+  statusChipSelected: { borderColor: theme.colors.primary, backgroundColor: theme.colors.primaryLight },
+  statusChipText: { color: theme.colors.muted, fontSize: 13, fontWeight: '700' },
+  statusChipTextSelected: { color: theme.colors.primary },
+  error: { marginBottom: 12, color: theme.colors.negative, fontSize: 13, fontWeight: '600' },
+  primaryButton: { borderRadius: 12, paddingVertical: 14, alignItems: 'center', backgroundColor: theme.colors.accent },
+  primaryButtonText: { color: '#FFFFFF', fontSize: 15, fontWeight: '800' },
+  searchInput: {
+    borderRadius: 10, borderWidth: 1.5, borderColor: theme.colors.border,
+    backgroundColor: theme.colors.panelRaised, color: theme.colors.text,
+    paddingHorizontal: 14, paddingVertical: 12, fontSize: 15, marginBottom: 4,
   },
-  supplierName: {
-    color: theme.colors.text,
-    fontSize: 16,
-    fontWeight: '800',
-  },
-  supplierMeta: {
-    color: theme.colors.muted,
-    fontSize: 13,
-    fontWeight: '600',
-  },
-  badge: {
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: 999,
-  },
-  badgeActive: {
-    backgroundColor: theme.colors.badge,
-    borderWidth: 1,
-    borderColor: theme.colors.positive,
-  },
-  badgeInactive: {
-    backgroundColor: theme.colors.panelRaised,
-    borderWidth: 1,
-    borderColor: theme.colors.warning,
-  },
-  badgeText: {
-    color: theme.colors.text,
-    fontSize: 12,
-    fontWeight: '700',
-  },
-  detailLabel: {
-    color: theme.colors.muted,
-    fontSize: 12,
-    fontWeight: '700',
-    marginTop: 2,
-  },
-  detailValue: {
-    color: theme.colors.text,
-    fontSize: 14,
-    lineHeight: 20,
-  },
+  emptyText: { color: theme.colors.muted, fontSize: 14, textAlign: 'center', paddingVertical: 16 },
+  supplierCard: { paddingVertical: 14, borderBottomWidth: 1, borderBottomColor: theme.colors.border, gap: 6 },
+  supplierHeader: { flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12 },
+  supplierCopy: { flex: 1, gap: 3 },
+  supplierName: { color: theme.colors.text, fontSize: 15, fontWeight: '700' },
+  supplierMeta: { color: theme.colors.muted, fontSize: 13 },
+  badge: { paddingHorizontal: 10, paddingVertical: 5, borderRadius: 999, borderWidth: 1 },
+  badgeActive: { backgroundColor: '#D1FAE5', borderColor: '#10B981' },
+  badgeInactive: { backgroundColor: '#FEE2E2', borderColor: '#F87171' },
+  badgeText: { fontSize: 12, fontWeight: '700' },
+  badgeTextActive: { color: '#065F46' },
+  badgeTextInactive: { color: theme.colors.negative },
+  detailRow: { flexDirection: 'row', gap: 8 },
+  detailLabel: { color: theme.colors.muted, fontSize: 12, fontWeight: '700', width: 64 },
+  detailValue: { flex: 1, color: theme.colors.text, fontSize: 13, lineHeight: 19 },
 });

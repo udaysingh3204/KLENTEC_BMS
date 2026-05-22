@@ -21,6 +21,7 @@ const routeMap: Partial<Record<string, keyof RootStackParamList>> = {
   '04': 'Customers',
   '05': 'Suppliers',
   '06': 'CashFlow',
+  '07': 'Employees',
   '08': 'Deliveries',
   '09': 'Reports',
 };
@@ -41,6 +42,7 @@ export function DashboardScreen({ navigation }: Props) {
   );
   const todaySales = sumInvoiceTotals(invoices);
   const totalExpenses = sumExpenseAmounts(expenses);
+  const netCashFlow = todaySales - totalExpenses;
   const outstandingCredit = customers.reduce((sum, customer) => sum + customer.outstandingBalance, 0);
   const lowStockCount = products.filter((product) => product.stockLeft <= product.minimumStock).length;
   const pendingDeliveries = deliveries.filter((delivery) => delivery.status !== 'Delivered').length;
@@ -66,24 +68,24 @@ export function DashboardScreen({ navigation }: Props) {
       label: 'Outstanding Credit',
       value: formatCurrency(outstandingCredit),
       direction: 'up',
-      caption: `${customers.filter((customer) => customer.outstandingBalance > 0).length} customers on credit`,
+      caption: `${customers.filter((c) => c.outstandingBalance > 0).length} customers on credit`,
     },
     {
       id: 'cashflow',
       label: 'Net Cash Flow',
-      value: formatCurrency(todaySales - totalExpenses),
-      direction: todaySales - totalExpenses >= 0 ? 'up' : 'down',
+      value: formatCurrency(netCashFlow),
+      direction: netCashFlow >= 0 ? 'up' : 'down',
       caption: `${expenses.length} expenses logged today`,
     },
   ];
 
   return (
     <ScreenShell
-      title={`${role.label} dashboard`}
-      subtitle="Operational summary with role-based access to the first implemented BMS workflows."
+      title={`${role.label} Dashboard`}
+      subtitle={`Welcome back · ${new Date().toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'short' })}`}
       action={
-        <Pressable onPress={signOut} style={styles.actionButton}>
-          <Text style={styles.actionButtonText}>Sign out</Text>
+        <Pressable onPress={signOut} style={styles.signOutButton}>
+          <Text style={styles.signOutButtonText}>Sign out</Text>
         </Pressable>
       }
     >
@@ -94,8 +96,8 @@ export function DashboardScreen({ navigation }: Props) {
       </View>
 
       <SectionCard
-        title="Available modules"
-        description="Implemented modules open directly. Remaining modules stay visible as delivery scope but are not active yet."
+        title="Modules"
+        description="Tap a module to open it. Greyed-out modules are in the delivery pipeline."
       >
         <View style={styles.moduleGrid}>
           {visibleModules.map((moduleDefinition) => {
@@ -119,7 +121,7 @@ export function DashboardScreen({ navigation }: Props) {
         </View>
       </SectionCard>
 
-      <SectionCard title="Payment mix" description="Current billed totals by payment mode.">
+      <SectionCard title="Payment Mix" description="Billed totals split by payment mode.">
         <View style={styles.row}>
           <Text style={styles.label}>Cash</Text>
           <Text style={styles.value}>{formatCurrency(paymentTotals.Cash)}</Text>
@@ -130,14 +132,16 @@ export function DashboardScreen({ navigation }: Props) {
         </View>
         <View style={styles.row}>
           <Text style={styles.label}>Credit</Text>
-          <Text style={styles.value}>{formatCurrency(paymentTotals.Credit)}</Text>
+          <Text style={[styles.value, { color: theme.colors.negative }]}>{formatCurrency(paymentTotals.Credit)}</Text>
         </View>
       </SectionCard>
 
-      <SectionCard title="Operations" description="Live operational checks across inventory and expenses.">
+      <SectionCard title="Operations" description="Live checks across inventory and expenses.">
         <View style={styles.row}>
           <Text style={styles.label}>Low stock products</Text>
-          <Text style={styles.value}>{String(lowStockCount)}</Text>
+          <Text style={[styles.value, lowStockCount > 0 ? { color: theme.colors.negative } : null]}>
+            {String(lowStockCount)}
+          </Text>
         </View>
         <View style={styles.row}>
           <Text style={styles.label}>Expenses total</Text>
@@ -145,7 +149,7 @@ export function DashboardScreen({ navigation }: Props) {
         </View>
       </SectionCard>
 
-      <SectionCard title="Recent activity" description="Latest store, billing, and delivery events.">
+      <SectionCard title="Recent Activity" description="Latest store, billing, and delivery events.">
         {activities.slice(0, 5).map((activity) => (
           <View key={activity.id} style={styles.activityRow}>
             <View style={styles.activityDot} />
@@ -162,44 +166,45 @@ export function DashboardScreen({ navigation }: Props) {
 }
 
 const styles = StyleSheet.create({
-  actionButton: {
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    borderRadius: 14,
+  signOutButton: {
+    paddingHorizontal: 14,
+    paddingVertical: 9,
+    borderRadius: 10,
     backgroundColor: theme.colors.panelRaised,
     borderWidth: 1,
     borderColor: theme.colors.border,
   },
-  actionButtonText: {
+  signOutButtonText: {
     color: theme.colors.text,
     fontSize: 13,
     fontWeight: '700',
   },
   statsGrid: {
-    gap: 12,
+    gap: 10,
   },
   moduleGrid: {
-    gap: 12,
+    gap: 10,
   },
   moduleDisabled: {
-    opacity: 0.55,
+    opacity: 0.45,
   },
   row: {
     flexDirection: 'row',
     justifyContent: 'space-between',
+    alignItems: 'center',
     gap: 16,
-    paddingVertical: 12,
+    paddingVertical: 11,
     borderBottomWidth: 1,
     borderBottomColor: theme.colors.border,
   },
   label: {
     color: theme.colors.muted,
     fontSize: 14,
-    fontWeight: '600',
+    fontWeight: '500',
   },
   value: {
     color: theme.colors.text,
-    fontSize: 15,
+    fontSize: 14,
     fontWeight: '700',
   },
   activityRow: {
@@ -211,8 +216,8 @@ const styles = StyleSheet.create({
     borderBottomColor: theme.colors.border,
   },
   activityDot: {
-    width: 10,
-    height: 10,
+    width: 8,
+    height: 8,
     borderRadius: 999,
     backgroundColor: theme.colors.accent,
     marginTop: 5,
@@ -224,7 +229,7 @@ const styles = StyleSheet.create({
     color: theme.colors.muted,
     fontSize: 13,
     lineHeight: 18,
-    marginTop: 4,
+    marginTop: 3,
   },
   activityTime: {
     color: theme.colors.muted,

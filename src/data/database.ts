@@ -3,7 +3,9 @@ import { Platform } from 'react-native';
 
 import {
   demoUsers,
+  initialAttendance,
   initialCustomers,
+  initialEmployees,
   initialExpenses,
   initialInvoices,
   initialProducts,
@@ -11,7 +13,18 @@ import {
   recentActivities,
   todayDeliveries,
 } from './mockData';
-import { ActivityItem, AppUser, Customer, DeliveryEntry, ExpenseEntry, Invoice, Product, Supplier } from '../types';
+import {
+  ActivityItem,
+  AttendanceRecord,
+  AppUser,
+  Customer,
+  DeliveryEntry,
+  Employee,
+  ExpenseEntry,
+  Invoice,
+  Product,
+  Supplier,
+} from '../types';
 
 type SessionRow = {
   key: string;
@@ -29,7 +42,7 @@ type InvoiceRow = {
   lines: string;
 };
 
-type AppSnapshot = {
+export type AppSnapshot = {
   users: AppUser[];
   currentUser: AppUser | null;
   products: Product[];
@@ -39,6 +52,8 @@ type AppSnapshot = {
   expenses: ExpenseEntry[];
   invoices: Invoice[];
   activities: ActivityItem[];
+  employees: Employee[];
+  attendance: AttendanceRecord[];
 };
 
 type WebDatabaseState = {
@@ -51,6 +66,8 @@ type WebDatabaseState = {
   expenses: ExpenseEntry[];
   invoices: Invoice[];
   activities: ActivityItem[];
+  employees: Employee[];
+  attendance: AttendanceRecord[];
 };
 
 type SQLiteDatabase = {
@@ -75,6 +92,8 @@ function getDefaultState(): WebDatabaseState {
     expenses: initialExpenses,
     invoices: initialInvoices,
     activities: recentActivities,
+    employees: initialEmployees,
+    attendance: initialAttendance,
   };
 }
 
@@ -196,6 +215,21 @@ export async function initializeDatabase() {
       note TEXT NOT NULL,
       time TEXT NOT NULL
     );
+    CREATE TABLE IF NOT EXISTS employees (
+      id TEXT PRIMARY KEY NOT NULL,
+      name TEXT NOT NULL,
+      phone TEXT NOT NULL,
+      role TEXT NOT NULL,
+      salary REAL NOT NULL,
+      status TEXT NOT NULL
+    );
+    CREATE TABLE IF NOT EXISTS attendance (
+      id TEXT PRIMARY KEY NOT NULL,
+      employeeId TEXT NOT NULL,
+      employeeName TEXT NOT NULL,
+      date TEXT NOT NULL,
+      status TEXT NOT NULL
+    );
     CREATE TABLE IF NOT EXISTS session_state (
       key TEXT PRIMARY KEY NOT NULL,
       value TEXT NOT NULL
@@ -208,17 +242,31 @@ export async function initializeDatabase() {
   const existingSuppliers = await database.getFirstAsync<{ count: number }>(
     'SELECT COUNT(*) as count FROM suppliers;'
   );
+  const existingEmployees = await database.getFirstAsync<{ count: number }>(
+    'SELECT COUNT(*) as count FROM employees;'
+  );
 
   if ((existingProducts?.count ?? 0) === 0) {
     await seedDatabase(database);
-  } else if ((existingSuppliers?.count ?? 0) === 0) {
-    await replaceTableRows(
-      database,
-      'suppliers',
-      'INSERT INTO suppliers (id, name, contactPerson, phone, address, category, materials, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?);',
-      initialSuppliers,
-      (item) => [item.id, item.name, item.contactPerson, item.phone, item.address, item.category, item.materials, item.status]
-    );
+  } else {
+    if ((existingSuppliers?.count ?? 0) === 0) {
+      await replaceTableRows(
+        database,
+        'suppliers',
+        'INSERT INTO suppliers (id, name, contactPerson, phone, address, category, materials, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?);',
+        initialSuppliers,
+        (item) => [item.id, item.name, item.contactPerson, item.phone, item.address, item.category, item.materials, item.status]
+      );
+    }
+    if ((existingEmployees?.count ?? 0) === 0) {
+      await replaceTableRows(
+        database,
+        'employees',
+        'INSERT INTO employees (id, name, phone, role, salary, status) VALUES (?, ?, ?, ?, ?, ?);',
+        initialEmployees,
+        (item) => [item.id, item.name, item.phone, item.role, item.salary, item.status]
+      );
+    }
   }
 
   return database;
@@ -290,6 +338,13 @@ async function seedDatabase(database: SQLiteDatabase) {
     recentActivities,
     (item) => [item.id, item.title, item.note, item.time]
   );
+  await replaceTableRows(
+    database,
+    'employees',
+    'INSERT INTO employees (id, name, phone, role, salary, status) VALUES (?, ?, ?, ?, ?, ?);',
+    initialEmployees,
+    (item) => [item.id, item.name, item.phone, item.role, item.salary, item.status]
+  );
   await database.runAsync(
     'INSERT OR REPLACE INTO session_state (key, value) VALUES (?, ?);',
     'currentUserId',
@@ -310,6 +365,8 @@ export async function loadAppSnapshot(): Promise<AppSnapshot> {
       expenses: state.expenses,
       invoices: state.invoices,
       activities: state.activities,
+      employees: state.employees ?? initialEmployees,
+      attendance: state.attendance ?? [],
     };
   }
 
@@ -325,8 +382,11 @@ export async function loadAppSnapshot(): Promise<AppSnapshot> {
       expenses: initialExpenses,
       invoices: initialInvoices,
       activities: recentActivities,
+      employees: initialEmployees,
+      attendance: [],
     };
   }
+
   const users = await database.getAllAsync<AppUser>('SELECT * FROM users ORDER BY label ASC;');
   const products = await database.getAllAsync<Product>('SELECT * FROM products ORDER BY name ASC;');
   const customers = await database.getAllAsync<Customer>('SELECT * FROM customers ORDER BY name ASC;');
@@ -335,6 +395,8 @@ export async function loadAppSnapshot(): Promise<AppSnapshot> {
   const expenses = await database.getAllAsync<ExpenseEntry>('SELECT * FROM expenses ORDER BY createdAt DESC;');
   const invoiceRows = await database.getAllAsync<InvoiceRow>('SELECT * FROM invoices ORDER BY createdAt DESC;');
   const activities = await database.getAllAsync<ActivityItem>('SELECT * FROM activities ORDER BY rowid DESC;');
+  const employees = await database.getAllAsync<Employee>('SELECT * FROM employees ORDER BY name ASC;');
+  const attendance = await database.getAllAsync<AttendanceRecord>('SELECT * FROM attendance ORDER BY date DESC;');
   const sessionRow = await database.getFirstAsync<SessionRow>(
     'SELECT * FROM session_state WHERE key = ?;',
     'currentUserId'
@@ -363,6 +425,8 @@ export async function loadAppSnapshot(): Promise<AppSnapshot> {
     expenses,
     invoices,
     activities,
+    employees,
+    attendance,
   };
 }
 
@@ -372,12 +436,8 @@ export async function persistProducts(products: Product[]) {
     await saveWebState({ ...state, products });
     return;
   }
-
   const database = await initializeDatabase();
-  if (!database) {
-    return;
-  }
-
+  if (!database) return;
   await replaceTableRows(
     database,
     'products',
@@ -393,12 +453,8 @@ export async function persistCustomers(customers: Customer[]) {
     await saveWebState({ ...state, customers });
     return;
   }
-
   const database = await initializeDatabase();
-  if (!database) {
-    return;
-  }
-
+  if (!database) return;
   await replaceTableRows(
     database,
     'customers',
@@ -414,12 +470,8 @@ export async function persistSuppliers(suppliers: Supplier[]) {
     await saveWebState({ ...state, suppliers });
     return;
   }
-
   const database = await initializeDatabase();
-  if (!database) {
-    return;
-  }
-
+  if (!database) return;
   await replaceTableRows(
     database,
     'suppliers',
@@ -435,12 +487,8 @@ export async function persistDeliveries(deliveries: DeliveryEntry[]) {
     await saveWebState({ ...state, deliveries });
     return;
   }
-
   const database = await initializeDatabase();
-  if (!database) {
-    return;
-  }
-
+  if (!database) return;
   await replaceTableRows(
     database,
     'deliveries',
@@ -456,12 +504,8 @@ export async function persistInvoices(invoices: Invoice[]) {
     await saveWebState({ ...state, invoices });
     return;
   }
-
   const database = await initializeDatabase();
-  if (!database) {
-    return;
-  }
-
+  if (!database) return;
   await replaceTableRows(
     database,
     'invoices',
@@ -486,12 +530,8 @@ export async function persistExpenses(expenses: ExpenseEntry[]) {
     await saveWebState({ ...state, expenses });
     return;
   }
-
   const database = await initializeDatabase();
-  if (!database) {
-    return;
-  }
-
+  if (!database) return;
   await replaceTableRows(
     database,
     'expenses',
@@ -507,12 +547,8 @@ export async function persistActivities(activities: ActivityItem[]) {
     await saveWebState({ ...state, activities });
     return;
   }
-
   const database = await initializeDatabase();
-  if (!database) {
-    return;
-  }
-
+  if (!database) return;
   await replaceTableRows(
     database,
     'activities',
@@ -522,18 +558,48 @@ export async function persistActivities(activities: ActivityItem[]) {
   );
 }
 
+export async function persistEmployees(employees: Employee[]) {
+  if (Platform.OS === 'web') {
+    const state = await loadWebState();
+    await saveWebState({ ...state, employees });
+    return;
+  }
+  const database = await initializeDatabase();
+  if (!database) return;
+  await replaceTableRows(
+    database,
+    'employees',
+    'INSERT INTO employees (id, name, phone, role, salary, status) VALUES (?, ?, ?, ?, ?, ?);',
+    employees,
+    (item) => [item.id, item.name, item.phone, item.role, item.salary, item.status]
+  );
+}
+
+export async function persistAttendance(attendance: AttendanceRecord[]) {
+  if (Platform.OS === 'web') {
+    const state = await loadWebState();
+    await saveWebState({ ...state, attendance });
+    return;
+  }
+  const database = await initializeDatabase();
+  if (!database) return;
+  await replaceTableRows(
+    database,
+    'attendance',
+    'INSERT INTO attendance (id, employeeId, employeeName, date, status) VALUES (?, ?, ?, ?, ?);',
+    attendance,
+    (item) => [item.id, item.employeeId, item.employeeName, item.date, item.status]
+  );
+}
+
 export async function persistCurrentUser(currentUser: AppUser | null) {
   if (Platform.OS === 'web') {
     const state = await loadWebState();
     await saveWebState({ ...state, sessionUserId: currentUser?.id ?? '' });
     return;
   }
-
   const database = await initializeDatabase();
-  if (!database) {
-    return;
-  }
-
+  if (!database) return;
   await database.runAsync(
     'INSERT OR REPLACE INTO session_state (key, value) VALUES (?, ?);',
     'currentUserId',
