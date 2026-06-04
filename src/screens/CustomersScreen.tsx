@@ -16,6 +16,8 @@ const paymentModes: PaymentMode[] = ['Cash', 'UPI'];
 
 export function CustomersScreen({ navigation }: Props) {
   const addCustomer = useAppStore((s) => s.addCustomer);
+  const editCustomer = useAppStore((s) => s.editCustomer);
+  const deleteCustomer = useAppStore((s) => s.deleteCustomer);
   const customers = useAppStore((s) => s.customers);
   const invoices = useAppStore((s) => s.invoices);
   const receivePayment = useAppStore((s) => s.receivePayment);
@@ -32,6 +34,13 @@ export function CustomersScreen({ navigation }: Props) {
   const [payMode, setPayMode] = useState<PaymentMode>('Cash');
   const [payError, setPayError] = useState('');
   const [paySuccess, setPaySuccess] = useState('');
+
+  // Edit customer
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editName, setEditName] = useState('');
+  const [editPhone, setEditPhone] = useState('');
+  const [editAddress, setEditAddress] = useState('');
+  const [editError, setEditError] = useState('');
 
   // Search
   const [search, setSearch] = useState('');
@@ -78,6 +87,51 @@ export function CustomersScreen({ navigation }: Props) {
 
   const getCustomerInvoices = (customerId: string) =>
     invoices.filter((inv) => inv.customerId === customerId).slice(0, 3);
+
+  const handleEditOpen = (customerId: string) => {
+    const customer = customers.find((c) => c.id === customerId);
+    if (customer) {
+      setEditingId(customerId);
+      setEditName(customer.name);
+      setEditPhone(customer.phone);
+      setEditAddress(customer.address);
+      setEditError('');
+    }
+  };
+
+  const handleEditSave = () => {
+    if (!editingId || !editName || !editPhone || !editAddress) {
+      setEditError('All fields are required.');
+      return;
+    }
+    const result = editCustomer({
+      customerId: editingId,
+      name: editName,
+      phone: editPhone,
+      address: editAddress,
+    });
+    if (result.success) {
+      setEditingId(null);
+      setPaySuccess('Customer updated.');
+      setTimeout(() => setPaySuccess(''), 2000);
+    } else {
+      setEditError(result.message ?? 'Failed to update.');
+    }
+  };
+
+  const handleDeleteCustomer = (customerId: string) => {
+    const customer = customers.find((c) => c.id === customerId);
+    if (customer && confirm(`Delete customer "${customer.name}"? This cannot be undone.`)) {
+      const result = deleteCustomer(customerId);
+      if (!result.success) {
+        setPayError(result.message ?? 'Cannot delete.');
+        setTimeout(() => setPayError(''), 3000);
+      } else {
+        setPaySuccess('Customer deleted.');
+        setTimeout(() => setPaySuccess(''), 2000);
+      }
+    }
+  };
 
   return (
     <ScreenShell
@@ -169,6 +223,24 @@ export function CustomersScreen({ navigation }: Props) {
         </Pressable>
       </SectionCard>
 
+      {/* Edit customer modal */}
+      {editingId ? (
+        <SectionCard title="Edit Customer" description="Update customer details.">
+          <TextInput value={editName} onChangeText={setEditName} placeholder="Customer name" placeholderTextColor={theme.colors.muted} style={styles.input} />
+          <TextInput value={editPhone} onChangeText={setEditPhone} placeholder="Mobile number" placeholderTextColor={theme.colors.muted} keyboardType="phone-pad" style={styles.input} />
+          <TextInput value={editAddress} onChangeText={setEditAddress} placeholder="Address / site location" placeholderTextColor={theme.colors.muted} style={styles.input} />
+          {editError ? <Text style={styles.error}>{editError}</Text> : null}
+          <View style={styles.modalButtonRow}>
+            <Pressable onPress={() => setEditingId(null)} style={[styles.modalButton, { backgroundColor: theme.colors.panelRaised, borderWidth: 1.5, borderColor: theme.colors.border }]}>
+              <Text style={[styles.modalButtonText, { color: theme.colors.text }]}>Cancel</Text>
+            </Pressable>
+            <Pressable onPress={handleEditSave} style={[styles.modalButton, { backgroundColor: theme.colors.primary }]}>
+              <Text style={[styles.modalButtonText, { color: '#FFFFFF' }]}>Save Changes</Text>
+            </Pressable>
+          </View>
+        </SectionCard>
+      ) : null}
+
       {/* Customer ledger with search */}
       <SectionCard title="Customer Ledger" description="Search by name, phone, or address.">
         <TextInput
@@ -192,14 +264,24 @@ export function CustomersScreen({ navigation }: Props) {
                   <Text style={styles.customerName}>{customer.name}</Text>
                   <Text style={styles.customerMeta}>{customer.phone} · {customer.address}</Text>
                 </View>
-                <View style={styles.balanceBlock}>
-                  <Text style={[styles.balanceValue, hasBalance ? styles.balanceRed : styles.balanceGreen]}>
-                    {formatCurrency(customer.outstandingBalance)}
-                  </Text>
-                  <View style={hasBalance ? styles.creditBadge : styles.clearBadge}>
-                    <Text style={hasBalance ? styles.creditBadgeText : styles.clearBadgeText}>
-                      {hasBalance ? 'Credit' : 'Clear'}
+                <View style={styles.balanceActionGroup}>
+                  <View style={styles.balanceBlock}>
+                    <Text style={[styles.balanceValue, hasBalance ? styles.balanceRed : styles.balanceGreen]}>
+                      {formatCurrency(customer.outstandingBalance)}
                     </Text>
+                    <View style={hasBalance ? styles.creditBadge : styles.clearBadge}>
+                      <Text style={hasBalance ? styles.creditBadgeText : styles.clearBadgeText}>
+                        {hasBalance ? 'Credit' : 'Clear'}
+                      </Text>
+                    </View>
+                  </View>
+                  <View style={styles.customerActions}>
+                    <Pressable onPress={() => handleEditOpen(customer.id)} style={styles.customerActionBtn}>
+                      <Text style={styles.customerActionIcon}>✎</Text>
+                    </Pressable>
+                    <Pressable onPress={() => handleDeleteCustomer(customer.id)} style={[styles.customerActionBtn, styles.customerActionBtnDelete]}>
+                      <Text style={[styles.customerActionIcon, { color: theme.colors.negative }]}>🗑</Text>
+                    </Pressable>
                   </View>
                 </View>
               </View>
@@ -280,11 +362,16 @@ const styles = StyleSheet.create({
   customerCard: {
     paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: theme.colors.border, gap: 8,
   },
-  customerHeader: { flexDirection: 'row', justifyContent: 'space-between', gap: 12 },
+  customerHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', gap: 12 },
   customerCopy: { flex: 1, gap: 3 },
   customerName: { color: theme.colors.text, fontSize: 15, fontWeight: '700' },
   customerMeta: { color: theme.colors.muted, fontSize: 13 },
+  balanceActionGroup: { alignItems: 'flex-end', gap: 8 },
   balanceBlock: { alignItems: 'flex-end', gap: 4 },
+  customerActions: { flexDirection: 'row', gap: 6 },
+  customerActionBtn: { width: 32, height: 32, borderRadius: 6, backgroundColor: theme.colors.panelRaised, borderWidth: 1, borderColor: theme.colors.border, alignItems: 'center', justifyContent: 'center' },
+  customerActionBtnDelete: { borderColor: '#FECACA' },
+  customerActionIcon: { fontSize: 14, color: theme.colors.primary },
   balanceValue: { fontSize: 14, fontWeight: '800' },
   balanceRed: { color: theme.colors.negative },
   balanceGreen: { color: theme.colors.positive },
@@ -299,4 +386,7 @@ const styles = StyleSheet.create({
   historyDate: { color: theme.colors.muted, fontSize: 11, width: 52 },
   historyItems: { flex: 1, color: theme.colors.text, fontSize: 12 },
   historyAmount: { color: theme.colors.positive, fontSize: 12, fontWeight: '700' },
+  modalButtonRow: { flexDirection: 'row', gap: 12, marginTop: 14 },
+  modalButton: { flex: 1, borderRadius: 12, paddingVertical: 12, alignItems: 'center' },
+  modalButtonText: { fontSize: 15, fontWeight: '800' },
 });

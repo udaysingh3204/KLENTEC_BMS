@@ -13,6 +13,8 @@ type Props = NativeStackScreenProps<RootStackParamList, 'Inventory'>;
 
 export function InventoryScreen({ navigation }: Props) {
   const addProduct = useAppStore((s) => s.addProduct);
+  const editProduct = useAppStore((s) => s.editProduct);
+  const deleteProduct = useAppStore((s) => s.deleteProduct);
   const adjustProductStock = useAppStore((s) => s.adjustProductStock);
   const currentUser = useAppStore((s) => s.currentUser);
   const products = useAppStore((s) => s.products);
@@ -32,6 +34,16 @@ export function InventoryScreen({ navigation }: Props) {
   const [adjustType, setAdjustType] = useState<'add' | 'reduce'>('add');
   const [adjustError, setAdjustError] = useState('');
   const [adjustSuccess, setAdjustSuccess] = useState('');
+
+  // Edit product
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editName, setEditName] = useState('');
+  const [editCategory, setEditCategory] = useState('');
+  const [editUnit, setEditUnit] = useState('');
+  const [editPrice, setEditPrice] = useState('');
+  const [editStockLeft, setEditStockLeft] = useState('');
+  const [editMinimumStock, setEditMinimumStock] = useState('');
+  const [editError, setEditError] = useState('');
 
   // Search
   const [search, setSearch] = useState('');
@@ -74,6 +86,48 @@ export function InventoryScreen({ navigation }: Props) {
     setAdjustSuccess(`Stock ${adjustType === 'add' ? 'added' : 'reduced'} for ${product?.name ?? 'product'}.`);
     setAdjustQty('');
     setTimeout(() => setAdjustSuccess(''), 3000);
+  };
+
+  const handleEditOpen = (productId: string) => {
+    const product = products.find((p) => p.id === productId);
+    if (product) {
+      setEditingId(productId);
+      setEditName(product.name);
+      setEditCategory(product.category);
+      setEditUnit(product.unit);
+      setEditPrice(product.price.toString());
+      setEditStockLeft(product.stockLeft.toString());
+      setEditMinimumStock(product.minimumStock.toString());
+      setEditError('');
+    }
+  };
+
+  const handleEditSave = () => {
+    const parsedPrice = parseWholeNumberInput(editPrice);
+    const parsedStock = parseWholeNumberInput(editStockLeft);
+    const parsedMin = parseWholeNumberInput(editMinimumStock);
+    if (!editName || !editCategory || !editUnit || !parsedPrice || !parsedStock || !parsedMin) {
+      setEditError('All fields are required and must be positive whole numbers.');
+      return;
+    }
+    const result = editProduct({
+      id: editingId!,
+      name: editName,
+      category: editCategory,
+      unit: editUnit,
+      price: parsedPrice,
+      stockLeft: parsedStock,
+      minimumStock: parsedMin,
+    });
+    if (!result.success) { setEditError(result.message ?? 'Failed to update.'); return; }
+    setEditingId(null);
+  };
+
+  const handleDeleteProduct = (productId: string) => {
+    const product = products.find((p) => p.id === productId);
+    if (product && confirm(`Delete "${product.name}"? This cannot be undone.`)) {
+      deleteProduct(productId);
+    }
   };
 
   return (
@@ -181,6 +235,29 @@ export function InventoryScreen({ navigation }: Props) {
         </SectionCard>
       ) : null}
 
+      {/* Edit product modal */}
+      {editingId ? (
+        <SectionCard title="Edit Product" description="Update product details.">
+          <View style={styles.formGrid}>
+            <TextInput value={editName} onChangeText={setEditName} placeholder="Product name" placeholderTextColor={theme.colors.muted} style={styles.input} />
+            <TextInput value={editCategory} onChangeText={setEditCategory} placeholder="Category" placeholderTextColor={theme.colors.muted} style={styles.input} />
+            <TextInput value={editUnit} onChangeText={setEditUnit} placeholder="Unit" placeholderTextColor={theme.colors.muted} style={styles.input} />
+            <TextInput value={editPrice} onChangeText={setEditPrice} placeholder="Unit price (₹)" placeholderTextColor={theme.colors.muted} keyboardType="numeric" style={styles.input} />
+            <TextInput value={editStockLeft} onChangeText={setEditStockLeft} placeholder="Stock qty" placeholderTextColor={theme.colors.muted} keyboardType="numeric" style={styles.input} />
+            <TextInput value={editMinimumStock} onChangeText={setEditMinimumStock} placeholder="Minimum stock qty" placeholderTextColor={theme.colors.muted} keyboardType="numeric" style={styles.input} />
+          </View>
+          {editError ? <Text style={styles.error}>{editError}</Text> : null}
+          <View style={styles.modalButtonRow}>
+            <Pressable onPress={() => setEditingId(null)} style={[styles.modalButton, { backgroundColor: theme.colors.panelRaised, borderWidth: 1.5, borderColor: theme.colors.border }]}>
+              <Text style={[styles.modalButtonText, { color: theme.colors.text }]}>Cancel</Text>
+            </Pressable>
+            <Pressable onPress={handleEditSave} style={[styles.modalButton, { backgroundColor: theme.colors.primary }]}>
+              <Text style={[styles.modalButtonText, { color: '#FFFFFF' }]}>Save Changes</Text>
+            </Pressable>
+          </View>
+        </SectionCard>
+      ) : null}
+
       {/* Product list with search */}
       <SectionCard title="Product List" description="Stock updates automatically on each invoice created.">
         <TextInput
@@ -197,21 +274,33 @@ export function InventoryScreen({ navigation }: Props) {
           const isLow = product.stockLeft <= product.minimumStock;
           return (
             <View key={product.id} style={styles.productRow}>
-              <View style={styles.productCopy}>
-                <View style={styles.productTitleRow}>
-                  <Text style={styles.productTitle}>{product.name}</Text>
-                  {isLow ? (
-                    <View style={styles.lowBadge}>
-                      <Text style={styles.lowBadgeText}>Low stock</Text>
-                    </View>
-                  ) : null}
+              <View style={styles.productContent}>
+                <View style={styles.productCopy}>
+                  <View style={styles.productTitleRow}>
+                    <Text style={styles.productTitle}>{product.name}</Text>
+                    {isLow ? (
+                      <View style={styles.lowBadge}>
+                        <Text style={styles.lowBadgeText}>Low stock</Text>
+                      </View>
+                    ) : null}
+                  </View>
+                  <Text style={styles.productMeta}>
+                    {product.category} · {product.unit} · {formatCurrency(product.price)}
+                  </Text>
+                  <Text style={[styles.stockMeta, isLow ? styles.stockMetaLow : null]}>
+                    Stock: {product.stockLeft} · Min: {product.minimumStock}
+                  </Text>
                 </View>
-                <Text style={styles.productMeta}>
-                  {product.category} · {product.unit} · {formatCurrency(product.price)}
-                </Text>
-                <Text style={[styles.stockMeta, isLow ? styles.stockMetaLow : null]}>
-                  Stock: {product.stockLeft} · Min: {product.minimumStock}
-                </Text>
+                {canEdit ? (
+                  <View style={styles.actionButtons}>
+                    <Pressable onPress={() => handleEditOpen(product.id)} style={styles.actionBtn}>
+                      <Text style={styles.actionBtnText}>✎</Text>
+                    </Pressable>
+                    <Pressable onPress={() => handleDeleteProduct(product.id)} style={[styles.actionBtn, styles.actionBtnDelete]}>
+                      <Text style={[styles.actionBtnText, { color: theme.colors.negative }]}>🗑</Text>
+                    </Pressable>
+                  </View>
+                ) : null}
               </View>
             </View>
           );
@@ -278,7 +367,15 @@ const styles = StyleSheet.create({
   productRow: {
     paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: theme.colors.border,
   },
-  productCopy: { gap: 3 },
+  productContent: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', gap: 12 },
+  productCopy: { gap: 3, flex: 1 },
+  actionButtons: { flexDirection: 'row', gap: 8 },
+  actionBtn: { width: 40, height: 40, borderRadius: 8, backgroundColor: theme.colors.panelRaised, borderWidth: 1, borderColor: theme.colors.border, alignItems: 'center', justifyContent: 'center' },
+  actionBtnDelete: { borderColor: '#FECACA' },
+  actionBtnText: { fontSize: 16, color: theme.colors.primary },
+  modalButtonRow: { flexDirection: 'row', gap: 12, marginTop: 14 },
+  modalButton: { flex: 1, borderRadius: 12, paddingVertical: 12, alignItems: 'center' },
+  modalButtonText: { fontSize: 15, fontWeight: '800' },
   productTitleRow: { flexDirection: 'row', alignItems: 'center', gap: 8, flexWrap: 'wrap' },
   productTitle: { color: theme.colors.text, fontSize: 15, fontWeight: '700' },
   lowBadge: { backgroundColor: '#FEE2E2', paddingHorizontal: 8, paddingVertical: 2, borderRadius: 999 },

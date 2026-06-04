@@ -75,6 +75,16 @@ type AddProductInput = {
   minimumStock: number;
 };
 
+type EditProductInput = {
+  id: string;
+  name?: string;
+  category?: string;
+  unit?: string;
+  price?: number;
+  stockLeft?: number;
+  minimumStock?: number;
+};
+
 type AddCustomerInput = {
   name: string;
   phone: string;
@@ -111,6 +121,27 @@ type ReceivePaymentInput = {
   paymentMode: PaymentMode;
 };
 
+type EditInvoiceInput = {
+  invoiceId: string;
+  paymentMode?: PaymentMode;
+  reference?: string;
+};
+
+type EditCustomerInput = {
+  customerId: string;
+  name?: string;
+  phone?: string;
+  address?: string;
+};
+
+type EditDeliveryInput = {
+  deliveryId: string;
+  customer?: string;
+  items?: string;
+  assignee?: string;
+  status?: DeliveryEntry['status'];
+};
+
 type AppState = {
   isReady: boolean;
   users: AppUser[];
@@ -128,13 +159,21 @@ type AppState = {
   signIn: (roleId: AppUser['roleId'], pin: string) => ActionResult;
   signOut: () => void;
   addProduct: (input: AddProductInput) => ActionResult;
+  editProduct: (input: EditProductInput) => ActionResult;
+  deleteProduct: (productId: string) => ActionResult;
   addCustomer: (input: AddCustomerInput) => ActionResult;
+  editCustomer: (input: EditCustomerInput) => ActionResult;
+  deleteCustomer: (customerId: string) => ActionResult;
   addSupplier: (input: AddSupplierInput) => ActionResult;
   addExpense: (input: AddExpenseInput) => ActionResult;
   addEmployee: (input: AddEmployeeInput) => ActionResult;
   adjustProductStock: (productId: string, delta: number) => void;
   createInvoice: (input: CreateInvoiceInput) => ActionResult;
+  editInvoice: (input: EditInvoiceInput) => ActionResult;
+  deleteInvoice: (invoiceId: string) => ActionResult;
   createDelivery: (input: CreateDeliveryInput) => ActionResult;
+  editDelivery: (input: EditDeliveryInput) => ActionResult;
+  deleteDelivery: (deliveryId: string) => ActionResult;
   advanceDeliveryStatus: (deliveryId: string) => void;
   receivePayment: (input: ReceivePaymentInput) => ActionResult;
   markAttendance: (employeeId: string, status: AttendanceStatus) => void;
@@ -219,6 +258,45 @@ export const useAppStore = create<AppState>((set, get) => ({
     return { success: true };
   },
 
+  editCustomer: (input) => {
+    const state = get();
+    const customer = state.customers.find((c) => c.id === input.customerId);
+    if (!customer) {
+      return { success: false, message: 'Customer not found.' };
+    }
+    const updated = { ...customer };
+    if (input.name !== undefined) updated.name = input.name;
+    if (input.phone !== undefined) updated.phone = input.phone;
+    if (input.address !== undefined) updated.address = input.address;
+    const nextCustomers = state.customers.map((c) => (c.id === input.customerId ? updated : c));
+    const nextActivities = [
+      createActivity('Customer updated', `${updated.name} contact details modified.`),
+      ...state.activities,
+    ].slice(0, 20);
+    set({ customers: nextCustomers, activities: nextActivities });
+    void persistCore({ ...state, customers: nextCustomers, activities: nextActivities });
+    return { success: true };
+  },
+
+  deleteCustomer: (customerId) => {
+    const state = get();
+    const customer = state.customers.find((c) => c.id === customerId);
+    if (!customer) {
+      return { success: false, message: 'Customer not found.' };
+    }
+    if (customer.outstandingBalance > 0) {
+      return { success: false, message: `Cannot delete customer with outstanding balance (${formatCurrency(customer.outstandingBalance)}).` };
+    }
+    const nextCustomers = state.customers.filter((c) => c.id !== customerId);
+    const nextActivities = [
+      createActivity('Customer deleted', `${customer.name} removed from directory.`),
+      ...state.activities,
+    ].slice(0, 20);
+    set({ customers: nextCustomers, activities: nextActivities });
+    void persistCore({ ...state, customers: nextCustomers, activities: nextActivities });
+    return { success: true };
+  },
+
   addSupplier: (input) => {
     const state = get();
     if (!input.name || !input.contactPerson || !input.phone || !input.address || !input.category || !input.materials) {
@@ -278,6 +356,55 @@ export const useAppStore = create<AppState>((set, get) => ({
     ];
     const nextActivities = [
       createActivity('Product added', `${input.name} added to inventory.`),
+      ...state.activities,
+    ].slice(0, 20);
+    set({ products: nextProducts, activities: nextActivities });
+    void persistCore({ ...state, products: nextProducts, activities: nextActivities });
+    return { success: true };
+  },
+
+  editProduct: (input) => {
+    const state = get();
+    const product = state.products.find((p) => p.id === input.id);
+    if (!product) {
+      return { success: false, message: 'Product not found.' };
+    }
+    const updated = { ...product };
+    if (input.name !== undefined) updated.name = input.name;
+    if (input.category !== undefined) updated.category = input.category;
+    if (input.unit !== undefined) updated.unit = input.unit;
+    if (input.price !== undefined) {
+      const normalized = normalizeMoney(input.price);
+      if (!isPositiveInteger(normalized)) return { success: false, message: 'Price must be a positive whole number.' };
+      updated.price = normalized;
+    }
+    if (input.stockLeft !== undefined) {
+      if (!isPositiveInteger(input.stockLeft)) return { success: false, message: 'Stock must be a positive whole number.' };
+      updated.stockLeft = input.stockLeft;
+    }
+    if (input.minimumStock !== undefined) {
+      if (!isPositiveInteger(input.minimumStock)) return { success: false, message: 'Minimum stock must be a positive whole number.' };
+      updated.minimumStock = input.minimumStock;
+    }
+    const nextProducts = state.products.map((p) => (p.id === input.id ? updated : p));
+    const nextActivities = [
+      createActivity('Product updated', `${updated.name} details modified.`),
+      ...state.activities,
+    ].slice(0, 20);
+    set({ products: nextProducts, activities: nextActivities });
+    void persistCore({ ...state, products: nextProducts, activities: nextActivities });
+    return { success: true };
+  },
+
+  deleteProduct: (productId) => {
+    const state = get();
+    const product = state.products.find((p) => p.id === productId);
+    if (!product) {
+      return { success: false, message: 'Product not found.' };
+    }
+    const nextProducts = state.products.filter((p) => p.id !== productId);
+    const nextActivities = [
+      createActivity('Product deleted', `${product.name} removed from inventory.`),
       ...state.activities,
     ].slice(0, 20);
     set({ products: nextProducts, activities: nextActivities });
@@ -399,6 +526,51 @@ export const useAppStore = create<AppState>((set, get) => ({
     return { success: true };
   },
 
+  editInvoice: ({ invoiceId, paymentMode, reference }) => {
+    const state = get();
+    const invoice = state.invoices.find((inv) => inv.id === invoiceId);
+    if (!invoice) {
+      return { success: false, message: 'Invoice not found.' };
+    }
+    const updated = { ...invoice };
+    if (paymentMode !== undefined) updated.paymentMode = paymentMode;
+    if (reference !== undefined) updated.reference = reference;
+    const nextInvoices = state.invoices.map((inv) => (inv.id === invoiceId ? updated : inv));
+    const nextActivities = [
+      createActivity('Invoice updated', `Invoice #${invoice.id.slice(-6)} payment mode updated.`),
+      ...state.activities,
+    ].slice(0, 20);
+    set({ invoices: nextInvoices, activities: nextActivities });
+    void persistCore({ ...state, invoices: nextInvoices, activities: nextActivities });
+    return { success: true };
+  },
+
+  deleteInvoice: (invoiceId) => {
+    const state = get();
+    const invoice = state.invoices.find((inv) => inv.id === invoiceId);
+    if (!invoice) {
+      return { success: false, message: 'Invoice not found.' };
+    }
+    const nextInvoices = state.invoices.filter((inv) => inv.id !== invoiceId);
+    const nextProducts = state.products.map((product) => {
+      const lineForProduct = invoice.lines.find((l) => l.productId === product.id);
+      if (!lineForProduct) return product;
+      return { ...product, stockLeft: product.stockLeft + lineForProduct.quantity };
+    });
+    const nextCustomers = state.customers.map((customer) =>
+      customer.id === invoice.customerId && invoice.paymentMode === 'Credit'
+        ? { ...customer, outstandingBalance: Math.max(0, customer.outstandingBalance - invoice.total) }
+        : customer
+    );
+    const nextActivities = [
+      createActivity('Invoice deleted', `Invoice #${invoice.id.slice(-6)} from ${invoice.customerName} reversed.`),
+      ...state.activities,
+    ].slice(0, 20);
+    set({ invoices: nextInvoices, products: nextProducts, customers: nextCustomers, activities: nextActivities });
+    void persistCore({ ...state, invoices: nextInvoices, products: nextProducts, customers: nextCustomers, activities: nextActivities });
+    return { success: true };
+  },
+
   createDelivery: ({ assignee, customer, items }) => {
     const state = get();
     if (!customer || !items || !assignee) {
@@ -410,6 +582,43 @@ export const useAppStore = create<AppState>((set, get) => ({
     ];
     const nextActivities = [
       createActivity('Delivery created', `${customer} delivery assigned to ${assignee}.`),
+      ...state.activities,
+    ].slice(0, 20);
+    set({ deliveries: nextDeliveries, activities: nextActivities });
+    void persistCore({ ...state, deliveries: nextDeliveries, activities: nextActivities });
+    return { success: true };
+  },
+
+  editDelivery: ({ deliveryId, customer, items, assignee, status }) => {
+    const state = get();
+    const delivery = state.deliveries.find((d) => d.id === deliveryId);
+    if (!delivery) {
+      return { success: false, message: 'Delivery not found.' };
+    }
+    const updated = { ...delivery };
+    if (customer !== undefined) updated.customer = customer;
+    if (items !== undefined) updated.items = items;
+    if (assignee !== undefined) updated.assignee = assignee;
+    if (status !== undefined) updated.status = status;
+    const nextDeliveries = state.deliveries.map((d) => (d.id === deliveryId ? updated : d));
+    const nextActivities = [
+      createActivity('Delivery updated', `Delivery for ${updated.customer} updated.`),
+      ...state.activities,
+    ].slice(0, 20);
+    set({ deliveries: nextDeliveries, activities: nextActivities });
+    void persistCore({ ...state, deliveries: nextDeliveries, activities: nextActivities });
+    return { success: true };
+  },
+
+  deleteDelivery: (deliveryId) => {
+    const state = get();
+    const delivery = state.deliveries.find((d) => d.id === deliveryId);
+    if (!delivery) {
+      return { success: false, message: 'Delivery not found.' };
+    }
+    const nextDeliveries = state.deliveries.filter((d) => d.id !== deliveryId);
+    const nextActivities = [
+      createActivity('Delivery deleted', `Delivery for ${delivery.customer} removed from queue.`),
       ...state.activities,
     ].slice(0, 20);
     set({ deliveries: nextDeliveries, activities: nextActivities });

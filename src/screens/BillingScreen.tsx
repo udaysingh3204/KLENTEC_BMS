@@ -20,6 +20,8 @@ const makeLineId = () => `l-${Date.now()}-${Math.random().toString(36).slice(2, 
 
 export function BillingScreen({ navigation }: Props) {
   const createInvoice = useAppStore((s) => s.createInvoice);
+  const editInvoice = useAppStore((s) => s.editInvoice);
+  const deleteInvoice = useAppStore((s) => s.deleteInvoice);
   const customers = useAppStore((s) => s.customers);
   const invoices = useAppStore((s) => s.invoices);
   const products = useAppStore((s) => s.products);
@@ -32,6 +34,11 @@ export function BillingScreen({ navigation }: Props) {
   const [reference, setReference] = useState('');
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
+
+  // Edit invoice
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editPaymentMode, setEditPaymentMode] = useState<PaymentMode>('Cash');
+  const [editReference, setEditReference] = useState('');
 
   const previewTotal = useMemo(() => {
     return draftLines.reduce((sum, line) => {
@@ -79,6 +86,38 @@ export function BillingScreen({ navigation }: Props) {
     setReference('');
     setSuccess('Invoice created successfully.');
     setTimeout(() => setSuccess(''), 3000);
+  };
+
+  const handleEditOpen = (invoiceId: string) => {
+    const invoice = invoices.find((inv) => inv.id === invoiceId);
+    if (invoice) {
+      setEditingId(invoiceId);
+      setEditPaymentMode(invoice.paymentMode);
+      setEditReference(invoice.reference ?? '');
+    }
+  };
+
+  const handleEditSave = () => {
+    if (!editingId) return;
+    const result = editInvoice({
+      invoiceId: editingId,
+      paymentMode: editPaymentMode,
+      reference: editReference || undefined,
+    });
+    if (result.success) {
+      setEditingId(null);
+      setSuccess('Invoice updated.');
+      setTimeout(() => setSuccess(''), 2000);
+    }
+  };
+
+  const handleDeleteInvoice = (invoiceId: string) => {
+    const invoice = invoices.find((inv) => inv.id === invoiceId);
+    if (invoice && confirm(`Delete invoice from ${invoice.customerName}? Stock will be restored.`)) {
+      deleteInvoice(invoiceId);
+      setSuccess('Invoice deleted and stock restored.');
+      setTimeout(() => setSuccess(''), 2000);
+    }
   };
 
   return (
@@ -211,24 +250,71 @@ export function BillingScreen({ navigation }: Props) {
         </Pressable>
       </SectionCard>
 
+      {/* Edit invoice modal */}
+      {editingId ? (
+        <SectionCard title="Edit Invoice" description="Update payment details.">
+          <Text style={styles.groupLabel}>Payment Mode</Text>
+          <View style={styles.chipWrap}>
+            {paymentModes.map((mode) => (
+              <Pressable
+                key={mode}
+                onPress={() => setEditPaymentMode(mode)}
+                style={[styles.chip, mode === editPaymentMode ? styles.chipActive : null]}
+              >
+                <Text style={[styles.chipText, mode === editPaymentMode ? styles.chipTextActive : null]}>{mode}</Text>
+              </Pressable>
+            ))}
+          </View>
+
+          {editPaymentMode === 'UPI' ? (
+            <TextInput
+              value={editReference}
+              onChangeText={setEditReference}
+              placeholder="UPI reference / transaction ID"
+              placeholderTextColor={theme.colors.muted}
+              style={styles.input}
+            />
+          ) : null}
+
+          <View style={styles.modalButtonRow}>
+            <Pressable onPress={() => setEditingId(null)} style={[styles.modalButton, { backgroundColor: theme.colors.panelRaised, borderWidth: 1.5, borderColor: theme.colors.border }]}>
+              <Text style={[styles.modalButtonText, { color: theme.colors.text }]}>Cancel</Text>
+            </Pressable>
+            <Pressable onPress={handleEditSave} style={[styles.modalButton, { backgroundColor: theme.colors.primary }]}>
+              <Text style={[styles.modalButtonText, { color: '#FFFFFF' }]}>Update Invoice</Text>
+            </Pressable>
+          </View>
+        </SectionCard>
+      ) : null}
+
       {/* Recent invoices */}
       <SectionCard title="Recent Invoices" description="Latest saved transactions with item and payment details.">
         {invoices.length === 0 ? (
           <Text style={styles.emptyText}>No invoices yet.</Text>
         ) : null}
         {invoices.slice(0, 8).map((invoice) => (
-          <View key={invoice.id} style={styles.invoiceRow}>
-            <View style={styles.invoiceCopy}>
-              <Text style={styles.invoiceCustomer}>{invoice.customerName}</Text>
-              <Text style={styles.invoiceMeta}>
-                {invoice.lines.map((l) => `${l.quantity} ${l.productName}`).join(', ')}
-              </Text>
-              <Text style={styles.invoiceDate}>
-                {new Date(invoice.createdAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}
-                {' · '}{invoice.paymentMode}
-              </Text>
+          <View key={invoice.id} style={styles.invoiceRowContainer}>
+            <View style={styles.invoiceRow}>
+              <View style={styles.invoiceCopy}>
+                <Text style={styles.invoiceCustomer}>{invoice.customerName}</Text>
+                <Text style={styles.invoiceMeta}>
+                  {invoice.lines.map((l) => `${l.quantity} ${l.productName}`).join(', ')}
+                </Text>
+                <Text style={styles.invoiceDate}>
+                  {new Date(invoice.createdAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}
+                  {' · '}{invoice.paymentMode}
+                </Text>
+              </View>
+              <Text style={styles.invoiceTotal}>{formatCurrency(invoice.total)}</Text>
             </View>
-            <Text style={styles.invoiceTotal}>{formatCurrency(invoice.total)}</Text>
+            <View style={styles.invoiceActions}>
+              <Pressable onPress={() => handleEditOpen(invoice.id)} style={styles.invoiceActionBtn}>
+                <Text style={styles.invoiceActionIcon}>✎</Text>
+              </Pressable>
+              <Pressable onPress={() => handleDeleteInvoice(invoice.id)} style={[styles.invoiceActionBtn, styles.invoiceActionBtnDelete]}>
+                <Text style={[styles.invoiceActionIcon, { color: theme.colors.negative }]}>🗑</Text>
+              </Pressable>
+            </View>
           </View>
         ))}
       </SectionCard>
@@ -294,13 +380,22 @@ const styles = StyleSheet.create({
   },
   primaryButtonText: { color: '#FFFFFF', fontSize: 15, fontWeight: '800' },
   emptyText: { color: theme.colors.muted, fontSize: 14, textAlign: 'center', paddingVertical: 12 },
-  invoiceRow: {
-    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start',
+  invoiceRowContainer: {
     paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: theme.colors.border, gap: 12,
+  },
+  invoiceRow: {
+    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', gap: 12,
   },
   invoiceCopy: { flex: 1, gap: 3 },
   invoiceCustomer: { color: theme.colors.text, fontSize: 14, fontWeight: '700' },
   invoiceMeta: { color: theme.colors.muted, fontSize: 12 },
   invoiceDate: { color: theme.colors.muted, fontSize: 11 },
   invoiceTotal: { color: theme.colors.positive, fontSize: 15, fontWeight: '800' },
+  invoiceActions: { flexDirection: 'row', gap: 8, marginTop: 8 },
+  invoiceActionBtn: { width: 36, height: 36, borderRadius: 6, backgroundColor: theme.colors.panelRaised, borderWidth: 1, borderColor: theme.colors.border, alignItems: 'center', justifyContent: 'center' },
+  invoiceActionBtnDelete: { borderColor: '#FECACA' },
+  invoiceActionIcon: { fontSize: 16, color: theme.colors.primary },
+  modalButtonRow: { flexDirection: 'row', gap: 12, marginTop: 14 },
+  modalButton: { flex: 1, borderRadius: 12, paddingVertical: 12, alignItems: 'center' },
+  modalButtonText: { fontSize: 15, fontWeight: '800' },
 });

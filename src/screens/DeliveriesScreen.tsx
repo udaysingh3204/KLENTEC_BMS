@@ -20,6 +20,8 @@ const statusStyle: Record<DeliveryEntry['status'], { bg: string; text: string; b
 export function DeliveriesScreen({ navigation }: Props) {
   const advanceDeliveryStatus = useAppStore((state) => state.advanceDeliveryStatus);
   const createDelivery = useAppStore((state) => state.createDelivery);
+  const editDelivery = useAppStore((state) => state.editDelivery);
+  const deleteDelivery = useAppStore((state) => state.deleteDelivery);
   const currentUser = useAppStore((state) => state.currentUser);
   const deliveries = useAppStore((state) => state.deliveries);
 
@@ -27,6 +29,14 @@ export function DeliveriesScreen({ navigation }: Props) {
   const [items, setItems] = useState('');
   const [assignee, setAssignee] = useState('');
   const [error, setError] = useState('');
+
+  // Edit delivery
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editCustomer, setEditCustomer] = useState('');
+  const [editItems, setEditItems] = useState('');
+  const [editAssignee, setEditAssignee] = useState('');
+  const [editError, setEditError] = useState('');
+  const [editSuccess, setEditSuccess] = useState('');
 
   const canCreate = currentUser?.roleId === 'admin';
 
@@ -45,6 +55,47 @@ export function DeliveriesScreen({ navigation }: Props) {
     setItems('');
     setAssignee('');
     setError('');
+  };
+
+  const handleEditOpen = (deliveryId: string) => {
+    const delivery = deliveries.find((d) => d.id === deliveryId);
+    if (delivery) {
+      setEditingId(deliveryId);
+      setEditCustomer(delivery.customer);
+      setEditItems(delivery.items);
+      setEditAssignee(delivery.assignee);
+      setEditError('');
+      setEditSuccess('');
+    }
+  };
+
+  const handleEditSave = () => {
+    if (!editingId || !editCustomer || !editItems || !editAssignee) {
+      setEditError('All fields are required.');
+      return;
+    }
+    const result = editDelivery({
+      deliveryId: editingId,
+      customer: editCustomer,
+      items: editItems,
+      assignee: editAssignee,
+    });
+    if (result.success) {
+      setEditingId(null);
+      setEditSuccess('Delivery updated.');
+      setTimeout(() => setEditSuccess(''), 2000);
+    } else {
+      setEditError(result.message ?? 'Failed to update.');
+    }
+  };
+
+  const handleDeleteDelivery = (deliveryId: string) => {
+    const delivery = deliveries.find((d) => d.id === deliveryId);
+    if (delivery && confirm(`Delete delivery for ${delivery.customer}? This cannot be undone.`)) {
+      deleteDelivery(deliveryId);
+      setEditSuccess('Delivery deleted.');
+      setTimeout(() => setEditSuccess(''), 2000);
+    }
   };
 
   return (
@@ -84,6 +135,25 @@ export function DeliveriesScreen({ navigation }: Props) {
         </SectionCard>
       ) : null}
 
+      {/* Edit delivery modal */}
+      {editingId ? (
+        <SectionCard title="Edit Delivery" description="Update delivery details.">
+          <TextInput value={editCustomer} onChangeText={setEditCustomer} placeholder="Customer name" placeholderTextColor={theme.colors.muted} style={styles.input} />
+          <TextInput value={editItems} onChangeText={setEditItems} placeholder="Items and quantity" placeholderTextColor={theme.colors.muted} style={styles.input} />
+          <TextInput value={editAssignee} onChangeText={setEditAssignee} placeholder="Delivery person name" placeholderTextColor={theme.colors.muted} style={styles.input} />
+          {editError ? <Text style={styles.error}>{editError}</Text> : null}
+          {editSuccess ? <Text style={styles.successText}>{editSuccess}</Text> : null}
+          <View style={styles.modalButtonRow}>
+            <Pressable onPress={() => setEditingId(null)} style={[styles.modalButton, { backgroundColor: theme.colors.panelRaised, borderWidth: 1.5, borderColor: theme.colors.border }]}>
+              <Text style={[styles.modalButtonText, { color: theme.colors.text }]}>Cancel</Text>
+            </Pressable>
+            <Pressable onPress={handleEditSave} style={[styles.modalButton, { backgroundColor: theme.colors.primary }]}>
+              <Text style={[styles.modalButtonText, { color: '#FFFFFF' }]}>Save Changes</Text>
+            </Pressable>
+          </View>
+        </SectionCard>
+      ) : null}
+
       <SectionCard title="Delivery Queue" description="Tap Advance to move a delivery through Pending → Dispatched → Delivered.">
         {deliveries.map((delivery) => {
           const s = statusStyle[delivery.status];
@@ -104,6 +174,12 @@ export function DeliveriesScreen({ navigation }: Props) {
                     <Text style={styles.advanceButtonText}>Advance →</Text>
                   </Pressable>
                 ) : null}
+                <Pressable onPress={() => handleEditOpen(delivery.id)} style={styles.actionBtn}>
+                  <Text style={styles.actionIcon}>✎</Text>
+                </Pressable>
+                <Pressable onPress={() => handleDeleteDelivery(delivery.id)} style={[styles.actionBtn, styles.actionBtnDelete]}>
+                  <Text style={[styles.actionIcon, { color: theme.colors.negative }]}>🗑</Text>
+                </Pressable>
               </View>
             </View>
           );
@@ -226,4 +302,11 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '700',
   },
+  actionBtn: { width: 36, height: 36, borderRadius: 6, backgroundColor: theme.colors.panelRaised, borderWidth: 1, borderColor: theme.colors.border, alignItems: 'center', justifyContent: 'center' },
+  actionBtnDelete: { borderColor: '#FECACA' },
+  actionIcon: { fontSize: 14, color: theme.colors.primary },
+  successText: { marginTop: 10, color: theme.colors.positive, fontSize: 13, fontWeight: '700' },
+  modalButtonRow: { flexDirection: 'row', gap: 12, marginTop: 14 },
+  modalButton: { flex: 1, borderRadius: 12, paddingVertical: 12, alignItems: 'center' },
+  modalButtonText: { fontSize: 15, fontWeight: '800' },
 });
