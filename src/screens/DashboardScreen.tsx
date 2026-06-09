@@ -95,6 +95,18 @@ export function DashboardScreen({ navigation }: Props) {
         ))}
       </View>
 
+      {/* Daily Ledger Quick Access */}
+      <Pressable
+        onPress={() => navigation.navigate('DailyLedger')}
+        style={styles.ledgerButton}
+      >
+        <View style={styles.ledgerButtonContent}>
+          <Text style={styles.ledgerButtonTitle}>Daily Ledger</Text>
+          <Text style={styles.ledgerButtonSubtitle}>View opening & closing balance with all transactions</Text>
+        </View>
+        <Text style={styles.ledgerButtonArrow}>→</Text>
+      </Pressable>
+
       <SectionCard
         title="Modules"
         description="Tap a module to open it. Greyed-out modules are in the delivery pipeline."
@@ -235,5 +247,36 @@ const styles = StyleSheet.create({
     color: theme.colors.muted,
     fontSize: 12,
     fontWeight: '600',
+  },
+  ledgerButton: {
+    backgroundColor: theme.colors.primaryLight,
+    borderWidth: 1,
+    borderColor: theme.colors.primary,
+    borderRadius: 12,
+    padding: 14,
+    marginBottom: 16,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 12,
+  },
+  ledgerButtonContent: {
+    flex: 1,
+    gap: 4,
+  },
+  ledgerButtonTitle: {
+    color: theme.colors.primary,
+    fontSize: 15,
+    fontWeight: '700',
+  },
+  ledgerButtonSubtitle: {
+    color: theme.colors.muted,
+    fontSize: 12,
+    lineHeight: 16,
+  },
+  ledgerButtonArrow: {
+    color: theme.colors.primary,
+    fontSize: 18,
+    fontWeight: '700',
   },
 });

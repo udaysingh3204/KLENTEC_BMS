@@ -5,6 +5,7 @@ import { StatusBar } from 'expo-status-bar';
 import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
 
 import { DashboardScreen } from '../screens/DashboardScreen';
+import { DailyLedgerScreen } from '../screens/DailyLedgerScreen';
 import { BillingScreen } from '../screens/BillingScreen';
 import { CashFlowScreen } from '../screens/CashFlowScreen';
 import { CustomersScreen } from '../screens/CustomersScreen';
@@ -52,6 +53,7 @@ export function AppNavigator() {
         {currentUser ? (
           <>
             <Stack.Screen name="Dashboard" component={DashboardScreen} />
+            <Stack.Screen name="DailyLedger" component={DailyLedgerScreen} />
             <Stack.Screen name="Inventory" component={InventoryScreen} />
             <Stack.Screen name="Billing" component={BillingScreen} />
             <Stack.Screen name="Customers" component={CustomersScreen} />
