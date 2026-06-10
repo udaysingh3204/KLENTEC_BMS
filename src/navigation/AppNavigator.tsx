@@ -13,6 +13,8 @@ import { DeliveriesScreen } from '../screens/DeliveriesScreen';
 import { EmployeeScreen } from '../screens/EmployeeScreen';
 import { InventoryScreen } from '../screens/InventoryScreen';
 import { LoginScreen } from '../screens/LoginScreen';
+import { ProLoginScreen } from '../screens/ProLoginScreen';
+import { WelcomeScreen } from '../screens/WelcomeScreen';
 import { ReportsScreen } from '../screens/ReportsScreen';
 import { SuppliersScreen } from '../screens/SuppliersScreen';
 import { useAppStore } from '../store/useAppStore';
@@ -64,7 +66,10 @@ export function AppNavigator() {
             <Stack.Screen name="Employees" component={EmployeeScreen} />
           </>
         ) : (
-          <Stack.Screen name="Login" component={LoginScreen} />
+          <>
+            <Stack.Screen name="Welcome" component={WelcomeScreen} options={{ headerShown: false }} />
+            <Stack.Screen name="Login" component={ProLoginScreen} options={{ headerShown: false }} />
+          </>
         )}
       </Stack.Navigator>
     </NavigationContainer>
