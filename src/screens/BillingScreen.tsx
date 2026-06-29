@@ -38,6 +38,10 @@ export function BillingScreen({ navigation }: Props) {
   const [bhada, setBhada] = useState('');
   const [influencerName, setInfluencerName] = useState('');
   const [influencerContact, setInfluencerContact] = useState('');
+  const [upiAccount, setUpiAccount] = useState<'Firm' | 'Personal'>('Firm');
+  const [employeeName, setEmployeeName] = useState('');
+  const [invoiceNumber, setInvoiceNumber] = useState('');
+  const [notes, setNotes] = useState('');
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
 
@@ -61,6 +65,10 @@ export function BillingScreen({ navigation }: Props) {
     bhada?: number;
     influencerName?: string;
     influencerContact?: string;
+    upiAccount?: 'Firm' | 'Personal';
+    employeeName?: string;
+    invoiceNumber?: string;
+    notes?: string;
   } | null>(null);
 
   const previewTotal = useMemo(() => {
@@ -132,6 +140,10 @@ export function BillingScreen({ navigation }: Props) {
       bhada: parseWholeNumberInput(bhada) || undefined,
       influencerName: influencerName || undefined,
       influencerContact: influencerContact || undefined,
+      upiAccount: paymentMode === 'UPI' ? upiAccount : undefined,
+      employeeName: employeeName || undefined,
+      invoiceNumber: invoiceNumber || undefined,
+      notes: notes || undefined,
     });
     setShowTransactionPopup(true);
   };
@@ -147,6 +159,10 @@ export function BillingScreen({ navigation }: Props) {
       bhada: pendingInvoiceData.bhada,
       influencerName: pendingInvoiceData.influencerName,
       influencerContact: pendingInvoiceData.influencerContact,
+      upiAccount: pendingInvoiceData.upiAccount,
+      employeeName: pendingInvoiceData.employeeName,
+      invoiceNumber: pendingInvoiceData.invoiceNumber,
+      notes: pendingInvoiceData.notes,
     });
 
     if (!result.success) {
@@ -159,6 +175,10 @@ export function BillingScreen({ navigation }: Props) {
     setBhada('');
     setInfluencerName('');
     setInfluencerContact('');
+    setUpiAccount('Firm');
+    setEmployeeName('');
+    setInvoiceNumber('');
+    setNotes('');
     setPendingInvoiceData(null);
 
     if (discrepancy > 0 && discrepancy < 100) {
@@ -373,13 +393,38 @@ export function BillingScreen({ navigation }: Props) {
         </View>
 
         {paymentMode === 'UPI' ? (
-          <TextInput
-            value={reference}
-            onChangeText={setReference}
-            placeholder="UPI reference / transaction ID"
-            placeholderTextColor={theme.colors.muted}
-            style={styles.input}
-          />
+          <>
+            <Text style={styles.groupLabel}>UPI Account</Text>
+            <View style={styles.chipWrap}>
+              {['Firm', 'Personal'].map((account) => (
+                <Pressable
+                  key={account}
+                  onPress={() => setUpiAccount(account as 'Firm' | 'Personal')}
+                  style={[
+                    styles.chip,
+                    upiAccount === account ? styles.chipActive : null,
+                  ]}
+                >
+                  <Text
+                    style={[
+                      styles.chipText,
+                      upiAccount === account ? styles.chipTextActive : null,
+                    ]}
+                  >
+                    {account}
+                  </Text>
+                </Pressable>
+              ))}
+            </View>
+
+            <TextInput
+              value={reference}
+              onChangeText={setReference}
+              placeholder="UPI reference / transaction ID"
+              placeholderTextColor={theme.colors.muted}
+              style={styles.input}
+            />
+          </>
         ) : null}
 
         {/* Bhada (Delivery Fees) */}
@@ -409,6 +454,31 @@ export function BillingScreen({ navigation }: Props) {
           placeholder="Influencer contact (optional)"
           placeholderTextColor={theme.colors.muted}
           style={styles.input}
+        />
+
+        {/* Additional Details */}
+        <Text style={styles.groupLabel}>Additional Details - Optional</Text>
+        <TextInput
+          value={employeeName}
+          onChangeText={setEmployeeName}
+          placeholder="Employee name (who made sale)"
+          placeholderTextColor={theme.colors.muted}
+          style={styles.input}
+        />
+        <TextInput
+          value={invoiceNumber}
+          onChangeText={setInvoiceNumber}
+          placeholder="Invoice number"
+          placeholderTextColor={theme.colors.muted}
+          style={styles.input}
+        />
+        <TextInput
+          value={notes}
+          onChangeText={setNotes}
+          placeholder="Notes or comments"
+          placeholderTextColor={theme.colors.muted}
+          style={[styles.input, { minHeight: 60, textAlignVertical: 'top' }]}
+          multiline
         />
 
         {/* Total preview */}

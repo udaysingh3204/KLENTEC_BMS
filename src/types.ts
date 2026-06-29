@@ -94,6 +94,8 @@ export type InvoiceLine = {
   materialDetails?: string;
 };
 
+export type UPIAccount = 'Firm' | 'Personal';
+
 export type Invoice = {
   id: string;
   customerId: string;
@@ -113,6 +115,12 @@ export type Invoice = {
   bhada?: number;
   influencerName?: string;
   influencerContact?: string;
+  upiAccount?: UPIAccount;
+  employeeName?: string;
+  invoiceNumber?: string;
+  notes?: string;
+  profit?: number;
+  status?: 'Pending' | 'Completed' | 'Cancelled';
 };
 
 export type AppUser = {

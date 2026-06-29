@@ -42,6 +42,7 @@ import {
   PaymentMode,
   Product,
   Supplier,
+  UPIAccount,
 } from '../types';
 import { calculateInvoiceTotal, formatCurrency, isPositiveInteger, normalizeMoney } from '../utils/finance';
 
@@ -63,6 +64,10 @@ type CreateInvoiceInput = {
   bhada?: number;
   influencerName?: string;
   influencerContact?: string;
+  upiAccount?: UPIAccount;
+  employeeName?: string;
+  invoiceNumber?: string;
+  notes?: string;
 };
 
 type CreateDeliveryInput = {
@@ -479,7 +484,7 @@ export const useAppStore = create<AppState>((set, get) => ({
     void persistProducts(nextProducts);
   },
 
-  createInvoice: ({ customerId, lines, paymentMode, reference, bhada, influencerName, influencerContact }) => {
+  createInvoice: ({ customerId, lines, paymentMode, reference, bhada, influencerName, influencerContact, upiAccount, employeeName, invoiceNumber, notes }) => {
     const state = get();
     const customer = state.customers.find((c) => c.id === customerId);
     if (!customer) {
@@ -516,6 +521,7 @@ export const useAppStore = create<AppState>((set, get) => ({
 
     const linesTotal = resolvedLines.reduce((sum, l) => sum + l.lineTotal, 0);
     const total = linesTotal + (bhada || 0);
+    const profit = total;
     const invoice: Invoice = {
       id: createId('inv'),
       customerId: customer.id,
@@ -530,6 +536,12 @@ export const useAppStore = create<AppState>((set, get) => ({
       bhada,
       influencerName,
       influencerContact,
+      upiAccount,
+      employeeName,
+      invoiceNumber,
+      notes,
+      profit,
+      status: 'Completed',
     };
 
     const nextInvoices = [invoice, ...state.invoices];

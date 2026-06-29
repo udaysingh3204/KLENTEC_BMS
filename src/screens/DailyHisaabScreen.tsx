@@ -4,8 +4,10 @@ import { NativeStackScreenProps } from '@react-navigation/native-stack';
 
 import { ScreenShell } from '../components/ScreenShell';
 import { SectionCard } from '../components/SectionCard';
+import { TransactionDetailsModal } from '../components/TransactionDetailsModal';
 import { RootStackParamList } from '../navigation/types';
 import { useAppStore } from '../store/useAppStore';
+import { Invoice } from '../types';
 import { theme } from '../theme';
 import { formatCurrency } from '../utils/finance';
 import { getTodayString, getFormattedDate } from '../utils/ledger';
@@ -17,6 +19,8 @@ export function DailyHisaabScreen({ navigation }: Props) {
   const expenses = useAppStore((s) => s.expenses);
 
   const [currentDate, setCurrentDate] = useState(getTodayString());
+  const [selectedTransaction, setSelectedTransaction] = useState<Invoice | null>(null);
+  const [showDetails, setShowDetails] = useState(false);
 
   // Get all transactions for the day
   const dailyData = useMemo(() => {
@@ -42,6 +46,7 @@ export function DailyHisaabScreen({ navigation }: Props) {
       bhada: inv.bhada || 0,
       influencer: inv.influencerName ? `${inv.influencerName}${inv.influencerContact ? ' (' + inv.influencerContact + ')' : ''}` : '',
       notes: inv.reference || '',
+      invoiceData: inv,
     }));
 
     // Prepare expense rows
@@ -168,7 +173,16 @@ export function DailyHisaabScreen({ navigation }: Props) {
 
               {/* Data Rows */}
               {dailyData.rows.map((row, idx) => (
-                <View key={row.id} style={[styles.row, idx % 2 === 0 ? styles.rowEven : styles.rowOdd]}>
+                <Pressable
+                  key={row.id}
+                  onPress={() => {
+                    if (row.type === 'invoice' && row.invoiceData) {
+                      setSelectedTransaction(row.invoiceData);
+                      setShowDetails(true);
+                    }
+                  }}
+                  style={[styles.row, idx % 2 === 0 ? styles.rowEven : styles.rowOdd, styles.clickableRow]}
+                >
                   <Text style={[styles.cell, styles.timeCell]}>{row.time}</Text>
                   <Text
                     style={[
@@ -190,7 +204,7 @@ export function DailyHisaabScreen({ navigation }: Props) {
                     {row.bhada > 0 ? formatCurrency(row.bhada) : '—'}
                   </Text>
                   <Text style={[styles.cell, styles.influencerCell]}>{row.influencer || '—'}</Text>
-                </View>
+                </Pressable>
               ))}
             </View>
           </ScrollView>
@@ -231,6 +245,16 @@ export function DailyHisaabScreen({ navigation }: Props) {
           </View>
         </View>
       </SectionCard>
+
+      {/* Transaction Details Modal */}
+      <TransactionDetailsModal
+        visible={showDetails}
+        transaction={selectedTransaction}
+        onClose={() => {
+          setShowDetails(false);
+          setSelectedTransaction(null);
+        }}
+      />
     </ScreenShell>
   );
 }
@@ -286,6 +310,7 @@ const styles = StyleSheet.create({
   headerRow: { backgroundColor: theme.colors.primary },
   rowEven: { backgroundColor: theme.colors.background },
   rowOdd: { backgroundColor: theme.colors.panelRaised },
+  clickableRow: { opacity: 1 },
 
   cell: {
     paddingHorizontal: 10,
