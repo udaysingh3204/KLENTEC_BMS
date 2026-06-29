@@ -35,6 +35,8 @@ import {
   Employee,
   ExpenseCategory,
   ExpenseEntry,
+  GoodsPurchase,
+  GoodsSale,
   Invoice,
   InvoiceLine,
   PaymentMode,
@@ -58,12 +60,29 @@ type CreateInvoiceInput = {
   lines: CreateInvoiceLine[];
   paymentMode: PaymentMode;
   reference?: string;
+  bhada?: number;
+  influencerName?: string;
+  influencerContact?: string;
 };
 
 type CreateDeliveryInput = {
   customer: string;
   items: string;
   assignee: string;
+};
+
+type AddGoodsPurchaseInput = {
+  itemName: string;
+  description: string;
+  purchaseAmount: number;
+  notes?: string;
+};
+
+type AddGoodsSaleInput = {
+  purchaseId: string;
+  saleAmount: number;
+  status: 'Partial' | 'Full';
+  notes?: string;
 };
 
 type AddProductInput = {
@@ -155,6 +174,8 @@ type AppState = {
   activities: ActivityItem[];
   employees: Employee[];
   attendance: AttendanceRecord[];
+  goodsPurchases: GoodsPurchase[];
+  goodsSales: GoodsSale[];
   initialize: () => Promise<void>;
   signIn: (roleId: AppUser['roleId'], pin: string) => ActionResult;
   signOut: () => void;
@@ -177,6 +198,8 @@ type AppState = {
   advanceDeliveryStatus: (deliveryId: string) => void;
   receivePayment: (input: ReceivePaymentInput) => ActionResult;
   markAttendance: (employeeId: string, status: AttendanceStatus) => void;
+  addGoodsPurchase: (input: AddGoodsPurchaseInput) => ActionResult;
+  addGoodsSale: (input: AddGoodsSaleInput) => ActionResult;
 };
 
 const createId = (prefix: string) => `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
@@ -218,6 +241,8 @@ export const useAppStore = create<AppState>((set, get) => ({
   activities: recentActivities,
   employees: initialEmployees,
   attendance: initialAttendance,
+  goodsPurchases: [],
+  goodsSales: [],
 
   initialize: async () => {
     if (get().isReady) return;
@@ -454,7 +479,7 @@ export const useAppStore = create<AppState>((set, get) => ({
     void persistProducts(nextProducts);
   },
 
-  createInvoice: ({ customerId, lines, paymentMode, reference }) => {
+  createInvoice: ({ customerId, lines, paymentMode, reference, bhada, influencerName, influencerContact }) => {
     const state = get();
     const customer = state.customers.find((c) => c.id === customerId);
     if (!customer) {
@@ -489,16 +514,22 @@ export const useAppStore = create<AppState>((set, get) => ({
       });
     }
 
-    const total = resolvedLines.reduce((sum, l) => sum + l.lineTotal, 0);
+    const linesTotal = resolvedLines.reduce((sum, l) => sum + l.lineTotal, 0);
+    const total = linesTotal + (bhada || 0);
     const invoice: Invoice = {
       id: createId('inv'),
       customerId: customer.id,
       customerName: customer.name,
+      customerPhone: customer.phone,
+      customerAddress: customer.address,
       paymentMode,
       reference,
       total,
       createdAt: new Date().toISOString(),
       lines: resolvedLines,
+      bhada,
+      influencerName,
+      influencerContact,
     };
 
     const nextInvoices = [invoice, ...state.invoices];
@@ -689,5 +720,43 @@ export const useAppStore = create<AppState>((set, get) => ({
 
     set({ attendance: nextAttendance });
     void persistAttendance(nextAttendance);
+  },
+
+  addGoodsPurchase: (input) => {
+    const state = get();
+    const purchase: GoodsPurchase = {
+      id: createId('gp'),
+      itemName: input.itemName,
+      description: input.description,
+      purchaseAmount: input.purchaseAmount,
+      purchaseDate: new Date().toISOString(),
+      notes: input.notes,
+    };
+
+    const nextPurchases = [purchase, ...state.goodsPurchases];
+    set({ goodsPurchases: nextPurchases });
+    return { success: true };
+  },
+
+  addGoodsSale: (input) => {
+    const state = get();
+    const purchase = state.goodsPurchases.find((p) => p.id === input.purchaseId);
+    if (!purchase) {
+      return { success: false, message: 'Purchase record not found' };
+    }
+
+    const sale: GoodsSale = {
+      id: createId('gs'),
+      purchaseId: input.purchaseId,
+      itemName: purchase.itemName,
+      saleAmount: input.saleAmount,
+      saleDate: new Date().toISOString(),
+      status: input.status,
+      notes: input.notes,
+    };
+
+    const nextSales = [sale, ...state.goodsSales];
+    set({ goodsSales: nextSales });
+    return { success: true };
   },
 }));

@@ -9,9 +9,9 @@ import { useAppStore } from '../store/useAppStore';
 import { theme } from '../theme';
 import { formatCurrency } from '../utils/finance';
 
-type Props = NativeStackScreenProps<RootStackParamList, 'Customers'>;
+type Props = NativeStackScreenProps<RootStackParamList, 'CustomerLedger'>;
 
-export function CustomerLedgerScreen() {
+export function CustomerLedgerScreen({ navigation }: Props) {
   const customers = useAppStore((s) => s.customers);
   const invoices = useAppStore((s) => s.invoices);
   const [selectedCustomerId, setSelectedCustomerId] = useState(customers[0]?.id ?? '');
@@ -40,11 +40,8 @@ export function CustomerLedgerScreen() {
       title="Customer Ledger"
       subtitle="View each customer's transaction history and outstanding balance."
       action={
-        <Pressable
-          onPress={() => setSelectedCustomerId(customers[0]?.id ?? '')}
-          style={styles.resetButton}
-        >
-          <Text style={styles.resetButtonText}>Reset</Text>
+        <Pressable onPress={() => navigation.goBack()} style={styles.backButton}>
+          <Text style={styles.backButtonText}>← Home</Text>
         </Pressable>
       }
     >
@@ -172,13 +169,15 @@ export function CustomerLedgerScreen() {
 }
 
 const styles = StyleSheet.create({
-  resetButton: {
+  backButton: {
     paddingHorizontal: 12,
     paddingVertical: 8,
     borderRadius: 8,
     backgroundColor: theme.colors.panelRaised,
+    borderWidth: 1.5,
+    borderColor: theme.colors.border,
   },
-  resetButtonText: { color: theme.colors.muted, fontSize: 12, fontWeight: '700' },
+  backButtonText: { color: theme.colors.primary, fontSize: 12, fontWeight: '700' },
 
   customerScroll: {
     marginHorizontal: -16,

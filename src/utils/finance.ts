@@ -54,3 +54,22 @@ export function buildPaymentTotals(invoices: Invoice[]) {
     return totals;
   }, emptyPaymentTotals());
 }
+
+export const DISCREPANCY_THRESHOLD = 100;
+
+export function calculateDiscrepancy(totalAmount: number, amountPaid: number) {
+  return totalAmount - amountPaid;
+}
+
+export function shouldRecordDiscrepancyAsDebit(discrepancy: number): boolean {
+  return Math.abs(discrepancy) >= DISCREPANCY_THRESHOLD;
+}
+
+export function getDiscrepancyStatus(discrepancy: number) {
+  if (discrepancy === 0) return { status: 'none' };
+  if (discrepancy < 0) return { status: 'overpaid', amount: Math.abs(discrepancy) };
+  if (shouldRecordDiscrepancyAsDebit(discrepancy)) {
+    return { status: 'debit', amount: discrepancy };
+  }
+  return { status: 'rounded_off', amount: discrepancy };
+}

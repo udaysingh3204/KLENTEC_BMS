@@ -1,0 +1,328 @@
+import { useMemo, useState } from 'react';
+import { ScrollView, StyleSheet, Text, View, Pressable } from 'react-native';
+import { NativeStackScreenProps } from '@react-navigation/native-stack';
+
+import { ScreenShell } from '../components/ScreenShell';
+import { SectionCard } from '../components/SectionCard';
+import { RootStackParamList } from '../navigation/types';
+import { useAppStore } from '../store/useAppStore';
+import { theme } from '../theme';
+import { formatCurrency } from '../utils/finance';
+import { getTodayString, getFormattedDate } from '../utils/ledger';
+
+type Props = NativeStackScreenProps<RootStackParamList, 'DailyLedger'>;
+
+export function DailyHisaabScreen({ navigation }: Props) {
+  const invoices = useAppStore((s) => s.invoices);
+  const expenses = useAppStore((s) => s.expenses);
+
+  const [currentDate, setCurrentDate] = useState(getTodayString());
+
+  // Get all transactions for the day
+  const dailyData = useMemo(() => {
+    const dateStr = currentDate.split('T')[0];
+
+    // Invoices for the day
+    const dayInvoices = invoices.filter((i) => i.createdAt.split('T')[0] === dateStr);
+
+    // Expenses for the day
+    const dayExpenses = expenses.filter((e) => e.createdAt.split('T')[0] === dateStr);
+
+    // Prepare invoice rows
+    const invoiceRows = dayInvoices.map((inv) => ({
+      id: inv.id,
+      type: 'invoice' as const,
+      time: inv.createdAt.split('T')[1]?.substring(0, 5) || '',
+      amount: inv.total,
+      mode: inv.paymentMode,
+      name: inv.customerName,
+      address: inv.customerAddress || '',
+      products: inv.lines.map((l) => l.productName).join(', '),
+      credit: inv.paymentMode === 'Credit' ? inv.total : 0,
+      bhada: inv.bhada || 0,
+      influencer: inv.influencerName ? `${inv.influencerName}${inv.influencerContact ? ' (' + inv.influencerContact + ')' : ''}` : '',
+      notes: inv.reference || '',
+    }));
+
+    // Prepare expense rows
+    const expenseRows = dayExpenses.map((exp) => ({
+      id: exp.id,
+      type: 'expense' as const,
+      time: exp.createdAt.split('T')[1]?.substring(0, 5) || '',
+      amount: -exp.amount,
+      mode: exp.paymentMode,
+      name: `[EXPENSE] ${exp.title}`,
+      address: '',
+      products: exp.category,
+      credit: 0,
+      bhada: 0,
+      influencer: '',
+      notes: exp.title,
+    }));
+
+    // Combine and sort by time
+    const allRows = [...invoiceRows, ...expenseRows].sort((a, b) => a.time.localeCompare(b.time));
+
+    // Calculate totals
+    const totalIncome = dayInvoices.reduce((sum, inv) => sum + inv.total, 0);
+    const totalExpense = dayExpenses.reduce((sum, exp) => sum + exp.amount, 0);
+    const totalCredit = dayInvoices
+      .filter((inv) => inv.paymentMode === 'Credit')
+      .reduce((sum, inv) => sum + inv.total, 0);
+    const totalCash = dayInvoices
+      .filter((inv) => inv.paymentMode === 'Cash')
+      .reduce((sum, inv) => sum + inv.total, 0);
+    const totalUPI = dayInvoices
+      .filter((inv) => inv.paymentMode === 'UPI')
+      .reduce((sum, inv) => sum + inv.total, 0);
+    const totalBhada = dayInvoices.reduce((sum, inv) => sum + (inv.bhada || 0), 0);
+
+    return {
+      rows: allRows,
+      totalIncome,
+      totalExpense,
+      totalCredit,
+      totalCash,
+      totalUPI,
+      totalBhada,
+      netProfit: totalIncome - totalExpense,
+      cashAvailable: totalCash + totalUPI - totalExpense,
+    };
+  }, [invoices, expenses, currentDate]);
+
+  return (
+    <ScreenShell
+      title="दैनिक हिसाब (Daily Hisaab)"
+      subtitle={`${getFormattedDate(currentDate)} • Complete Daily Ledger`}
+      action={
+        <Pressable onPress={() => navigation.goBack()} style={styles.backButton}>
+          <Text style={styles.backButtonText}>← Back</Text>
+        </Pressable>
+      }
+    >
+      {/* Summary Cards */}
+      <View style={styles.summaryRow}>
+        <View style={[styles.summaryCard, styles.incomeCard]}>
+          <Text style={styles.summaryLabel}>Total Income</Text>
+          <Text style={styles.summaryValue}>{formatCurrency(dailyData.totalIncome)}</Text>
+        </View>
+        <View style={[styles.summaryCard, styles.expenseCard]}>
+          <Text style={styles.summaryLabel}>Total Expense</Text>
+          <Text style={styles.summaryValue}>{formatCurrency(dailyData.totalExpense)}</Text>
+        </View>
+        <View style={[styles.summaryCard, dailyData.netProfit >= 0 ? styles.profitCard : styles.lossCard]}>
+          <Text style={styles.summaryLabel}>Net Profit</Text>
+          <Text style={styles.summaryValue}>
+            {dailyData.netProfit >= 0 ? '+' : '−'}{formatCurrency(Math.abs(dailyData.netProfit))}
+          </Text>
+        </View>
+      </View>
+
+      {/* Payment Mode Breakdown */}
+      <SectionCard title="Payment Mode Summary" description="Breakdown by payment type">
+        <View style={styles.breakdownRow}>
+          <View style={styles.breakdownItem}>
+            <Text style={styles.breakdownLabel}>💵 Cash</Text>
+            <Text style={[styles.breakdownValue, { color: theme.colors.positive }]}>
+              {formatCurrency(dailyData.totalCash)}
+            </Text>
+          </View>
+          <View style={styles.breakdownItem}>
+            <Text style={styles.breakdownLabel}>📱 UPI</Text>
+            <Text style={[styles.breakdownValue, { color: theme.colors.positive }]}>
+              {formatCurrency(dailyData.totalUPI)}
+            </Text>
+          </View>
+          <View style={styles.breakdownItem}>
+            <Text style={styles.breakdownLabel}>💳 Credit</Text>
+            <Text style={[styles.breakdownValue, { color: theme.colors.accent }]}>
+              {formatCurrency(dailyData.totalCredit)}
+            </Text>
+          </View>
+          <View style={styles.breakdownItem}>
+            <Text style={styles.breakdownLabel}>🚚 Bhada</Text>
+            <Text style={styles.breakdownValue}>{formatCurrency(dailyData.totalBhada)}</Text>
+          </View>
+        </View>
+      </SectionCard>
+
+      {/* Main Ledger Table */}
+      <SectionCard title="Complete Daily Ledger (सभी लेनदेन)" description="All transactions in chronological order">
+        {dailyData.rows.length === 0 ? (
+          <Text style={styles.emptyText}>No transactions for this day</Text>
+        ) : (
+          <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+            <View style={styles.tableContainer}>
+              {/* Header Row */}
+              <View style={[styles.row, styles.headerRow]}>
+                <Text style={[styles.cell, styles.timeCell, styles.headerCell]}>समय</Text>
+                <Text style={[styles.cell, styles.amountCell, styles.headerCell]}>Amount</Text>
+                <Text style={[styles.cell, styles.modeCell, styles.headerCell]}>Mode</Text>
+                <Text style={[styles.cell, styles.nameCell, styles.headerCell]}>Name</Text>
+                <Text style={[styles.cell, styles.productsCell, styles.headerCell]}>Products</Text>
+                <Text style={[styles.cell, styles.addressCell, styles.headerCell]}>Address</Text>
+                <Text style={[styles.cell, styles.creditCell, styles.headerCell]}>Credit</Text>
+                <Text style={[styles.cell, styles.bhadaCell, styles.headerCell]}>Bhada</Text>
+                <Text style={[styles.cell, styles.influencerCell, styles.headerCell]}>Influencer</Text>
+              </View>
+
+              {/* Data Rows */}
+              {dailyData.rows.map((row, idx) => (
+                <View key={row.id} style={[styles.row, idx % 2 === 0 ? styles.rowEven : styles.rowOdd]}>
+                  <Text style={[styles.cell, styles.timeCell]}>{row.time}</Text>
+                  <Text
+                    style={[
+                      styles.cell,
+                      styles.amountCell,
+                      { color: row.type === 'invoice' ? theme.colors.positive : theme.colors.negative },
+                    ]}
+                  >
+                    {row.type === 'invoice' ? '+' : '−'}{formatCurrency(Math.abs(row.amount))}
+                  </Text>
+                  <Text style={[styles.cell, styles.modeCell]}>{row.mode}</Text>
+                  <Text style={[styles.cell, styles.nameCell]}>{row.name}</Text>
+                  <Text style={[styles.cell, styles.productsCell]}>{row.products}</Text>
+                  <Text style={[styles.cell, styles.addressCell]}>{row.address}</Text>
+                  <Text style={[styles.cell, styles.creditCell]}>
+                    {row.credit > 0 ? formatCurrency(row.credit) : '—'}
+                  </Text>
+                  <Text style={[styles.cell, styles.bhadaCell]}>
+                    {row.bhada > 0 ? formatCurrency(row.bhada) : '—'}
+                  </Text>
+                  <Text style={[styles.cell, styles.influencerCell]}>{row.influencer || '—'}</Text>
+                </View>
+              ))}
+            </View>
+          </ScrollView>
+        )}
+      </SectionCard>
+
+      {/* Cash in Hand Summary */}
+      <SectionCard title="नकद हिसाब (Cash Summary)" description="Cash and UPI balance">
+        <View style={styles.cashSummaryRow}>
+          <View style={styles.cashSummaryItem}>
+            <Text style={styles.cashSummaryLabel}>Cash Received</Text>
+            <Text style={[styles.cashSummaryValue, { color: theme.colors.positive }]}>
+              {formatCurrency(dailyData.totalCash)}
+            </Text>
+          </View>
+          <View style={styles.cashSummaryItem}>
+            <Text style={styles.cashSummaryLabel}>UPI Received</Text>
+            <Text style={[styles.cashSummaryValue, { color: theme.colors.positive }]}>
+              {formatCurrency(dailyData.totalUPI)}
+            </Text>
+          </View>
+          <View style={styles.cashSummaryItem}>
+            <Text style={styles.cashSummaryLabel}>Expenses Paid</Text>
+            <Text style={[styles.cashSummaryValue, { color: theme.colors.negative }]}>
+              {formatCurrency(dailyData.totalExpense)}
+            </Text>
+          </View>
+          <View style={[styles.cashSummaryItem, styles.cashSummaryTotal]}>
+            <Text style={styles.cashSummaryLabel}>Cash in Hand</Text>
+            <Text
+              style={[
+                styles.cashSummaryValue,
+                { color: dailyData.cashAvailable >= 0 ? theme.colors.positive : theme.colors.negative },
+              ]}
+            >
+              {dailyData.cashAvailable >= 0 ? '+' : '−'}{formatCurrency(Math.abs(dailyData.cashAvailable))}
+            </Text>
+          </View>
+        </View>
+      </SectionCard>
+    </ScreenShell>
+  );
+}
+
+const styles = StyleSheet.create({
+  backButton: {
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 8,
+    backgroundColor: theme.colors.panelRaised,
+    borderWidth: 1.5,
+    borderColor: theme.colors.border,
+  },
+  backButtonText: { color: theme.colors.primary, fontSize: 12, fontWeight: '700' },
+
+  summaryRow: { flexDirection: 'row', gap: 12, marginBottom: 16 },
+  summaryCard: {
+    flex: 1,
+    borderRadius: 12,
+    padding: 14,
+    alignItems: 'center',
+    gap: 4,
+  },
+  incomeCard: { backgroundColor: '#F0FDF4', borderWidth: 1, borderColor: '#DCFCE7' },
+  expenseCard: { backgroundColor: '#FFF5F5', borderWidth: 1, borderColor: '#FECACA' },
+  profitCard: { backgroundColor: '#F0FDF4', borderWidth: 1, borderColor: '#DCFCE7' },
+  lossCard: { backgroundColor: '#FFF5F5', borderWidth: 1, borderColor: '#FECACA' },
+  summaryLabel: { color: theme.colors.muted, fontSize: 11, fontWeight: '600', textTransform: 'uppercase' },
+  summaryValue: { color: theme.colors.text, fontSize: 16, fontWeight: '800' },
+
+  breakdownRow: { flexDirection: 'row', gap: 12, flexWrap: 'wrap' },
+  breakdownItem: {
+    flex: 1,
+    minWidth: 100,
+    backgroundColor: theme.colors.panelRaised,
+    borderRadius: 10,
+    padding: 12,
+    alignItems: 'center',
+    gap: 4,
+  },
+  breakdownLabel: { color: theme.colors.muted, fontSize: 12, fontWeight: '600' },
+  breakdownValue: { color: theme.colors.text, fontSize: 15, fontWeight: '800' },
+
+  emptyText: {
+    color: theme.colors.muted,
+    fontSize: 14,
+    textAlign: 'center',
+    paddingVertical: 20,
+  },
+
+  tableContainer: { borderRadius: 12, overflow: 'hidden', borderWidth: 1, borderColor: theme.colors.border },
+  row: { flexDirection: 'row', borderBottomWidth: 1, borderBottomColor: theme.colors.border },
+  headerRow: { backgroundColor: theme.colors.primary },
+  rowEven: { backgroundColor: theme.colors.background },
+  rowOdd: { backgroundColor: theme.colors.panelRaised },
+
+  cell: {
+    paddingHorizontal: 10,
+    paddingVertical: 10,
+    fontSize: 12,
+    color: theme.colors.text,
+  },
+  headerCell: {
+    color: '#FFFFFF',
+    fontWeight: '700',
+    backgroundColor: theme.colors.primary,
+  },
+
+  timeCell: { width: 60, fontWeight: '600' },
+  amountCell: { width: 80, fontWeight: '700' },
+  modeCell: { width: 70 },
+  nameCell: { width: 120 },
+  productsCell: { width: 150 },
+  addressCell: { width: 140 },
+  creditCell: { width: 70, fontWeight: '600' },
+  bhadaCell: { width: 70, fontWeight: '600' },
+  influencerCell: { width: 140 },
+
+  cashSummaryRow: { gap: 12 },
+  cashSummaryItem: {
+    backgroundColor: theme.colors.panelRaised,
+    borderRadius: 12,
+    padding: 14,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  cashSummaryTotal: {
+    backgroundColor: theme.colors.primary + '15',
+    borderWidth: 2,
+    borderColor: theme.colors.primary,
+  },
+  cashSummaryLabel: { color: theme.colors.muted, fontSize: 13, fontWeight: '600' },
+  cashSummaryValue: { fontSize: 16, fontWeight: '800' },
+});

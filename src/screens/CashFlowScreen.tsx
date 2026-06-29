@@ -12,7 +12,7 @@ import { formatCurrency, parseWholeNumberInput, sumExpenseAmounts, sumInvoiceTot
 
 type Props = NativeStackScreenProps<RootStackParamList, 'CashFlow'>;
 
-const categories: ExpenseCategory[] = ['Shop', 'Labour', 'Delivery', 'Purchase', 'Misc'];
+const categories: ExpenseCategory[] = ['Shop', 'Labour', 'Delivery', 'Purchase Bills', 'Cash Management', 'Misc'];
 const paymentModes: PaymentMode[] = ['Cash', 'UPI', 'Credit'];
 
 export function CashFlowScreen({ navigation }: Props) {

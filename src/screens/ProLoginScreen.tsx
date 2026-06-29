@@ -61,22 +61,7 @@ export function ProLoginScreen({ navigation }: Props) {
       </View>
 
       <SectionCard title="Login Details" description="Use your credentials to access the system.">
-        {/* Demo Users Info */}
-        <View style={styles.demoBox}>
-          <Text style={styles.demoTitle}>Demo Credentials:</Text>
-          <View style={styles.demoUser}>
-            <Text style={styles.demoLabel}>👨‍💼 Admin:</Text>
-            <Text style={styles.demoValue}>admin@klentec.com / Admin123</Text>
-          </View>
-          <View style={styles.demoUser}>
-            <Text style={styles.demoLabel}>👤 Employee:</Text>
-            <Text style={styles.demoValue}>employee@klentec.com / Employee123</Text>
-          </View>
-          <View style={styles.demoUser}>
-            <Text style={styles.demoLabel}>🚚 Delivery:</Text>
-            <Text style={styles.demoValue}>delivery@klentec.com / Delivery123</Text>
-          </View>
-        </View>
+        {/* Demo Users Info — Hidden for now, will be fixed later */}
 
         {/* Email Input */}
         <Text style={styles.label}>Email Address</Text>

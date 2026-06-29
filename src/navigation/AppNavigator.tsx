@@ -5,18 +5,17 @@ import { StatusBar } from 'expo-status-bar';
 import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
 
 import { DashboardScreen } from '../screens/DashboardScreen';
-import { DailyLedgerScreen } from '../screens/DailyLedgerScreen';
+import { DailyHisaabScreen } from '../screens/DailyHisaabScreen';
 import { CustomerLedgerScreen } from '../screens/CustomerLedgerScreen';
+import { SalesReportScreen } from '../screens/SalesReportScreen';
 import { BillingScreen } from '../screens/BillingScreen';
 import { CashFlowScreen } from '../screens/CashFlowScreen';
 import { CustomersScreen } from '../screens/CustomersScreen';
 import { DeliveriesScreen } from '../screens/DeliveriesScreen';
 import { EmployeeScreen } from '../screens/EmployeeScreen';
 import { InventoryScreen } from '../screens/InventoryScreen';
-import { LoginScreen } from '../screens/LoginScreen';
-import { ProLoginScreen } from '../screens/ProLoginScreen';
-import { WelcomeScreen } from '../screens/WelcomeScreen';
-import { ReportsScreen } from '../screens/ReportsScreen';
+import { ComprehensiveLedgerScreen } from '../screens/ComprehensiveLedgerScreen';
+import { GoodsBatchScreen } from '../screens/GoodsBatchScreen';
 import { SuppliersScreen } from '../screens/SuppliersScreen';
 import { useAppStore } from '../store/useAppStore';
 import { theme } from '../theme';
@@ -25,13 +24,15 @@ import { RootStackParamList } from './types';
 const Stack = createNativeStackNavigator<RootStackParamList>();
 
 export function AppNavigator() {
-  const currentUser = useAppStore((state) => state.currentUser);
   const initialize = useAppStore((state) => state.initialize);
+  const signIn = useAppStore((state) => state.signIn);
   const isReady = useAppStore((state) => state.isReady);
 
   useEffect(() => {
-    void initialize();
-  }, [initialize]);
+    void initialize().then(() => {
+      signIn('admin', '1234');
+    });
+  }, [initialize, signIn]);
 
   if (!isReady) {
     return (
@@ -53,26 +54,19 @@ export function AppNavigator() {
           contentStyle: { backgroundColor: theme.colors.background },
         }}
       >
-        {currentUser ? (
-          <>
-            <Stack.Screen name="Dashboard" component={DashboardScreen} />
-            <Stack.Screen name="DailyLedger" component={DailyLedgerScreen} />
-            <Stack.Screen name="CustomerLedger" component={CustomerLedgerScreen} />
-            <Stack.Screen name="Inventory" component={InventoryScreen} />
-            <Stack.Screen name="Billing" component={BillingScreen} />
-            <Stack.Screen name="Customers" component={CustomersScreen} />
-            <Stack.Screen name="Suppliers" component={SuppliersScreen} />
-            <Stack.Screen name="CashFlow" component={CashFlowScreen} />
-            <Stack.Screen name="Reports" component={ReportsScreen} />
-            <Stack.Screen name="Deliveries" component={DeliveriesScreen} />
-            <Stack.Screen name="Employees" component={EmployeeScreen} />
-          </>
-        ) : (
-          <>
-            <Stack.Screen name="Welcome" component={WelcomeScreen} options={{ headerShown: false }} />
-            <Stack.Screen name="Login" component={ProLoginScreen} options={{ headerShown: false }} />
-          </>
-        )}
+        <Stack.Screen name="Dashboard" component={DashboardScreen} />
+        <Stack.Screen name="DailyLedger" component={DailyHisaabScreen} />
+        <Stack.Screen name="CustomerLedger" component={CustomerLedgerScreen} />
+        <Stack.Screen name="SalesReport" component={SalesReportScreen} />
+        <Stack.Screen name="Inventory" component={InventoryScreen} />
+        <Stack.Screen name="Billing" component={BillingScreen} />
+        <Stack.Screen name="Customers" component={CustomersScreen} />
+        <Stack.Screen name="Suppliers" component={SuppliersScreen} />
+        <Stack.Screen name="CashFlow" component={CashFlowScreen} />
+        <Stack.Screen name="Reports" component={ComprehensiveLedgerScreen} />
+        <Stack.Screen name="GoodsBatch" component={GoodsBatchScreen} />
+        <Stack.Screen name="Deliveries" component={DeliveriesScreen} />
+        <Stack.Screen name="Employees" component={EmployeeScreen} />
       </Stack.Navigator>
     </NavigationContainer>
   );

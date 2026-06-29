@@ -4,6 +4,8 @@ import { NativeStackScreenProps } from '@react-navigation/native-stack';
 
 import { ScreenShell } from '../components/ScreenShell';
 import { SectionCard } from '../components/SectionCard';
+import { TransactionPopup } from '../components/TransactionPopup';
+import { AddCustomerModal } from '../components/AddCustomerModal';
 import { RootStackParamList } from '../navigation/types';
 import { useAppStore } from '../store/useAppStore';
 import { theme } from '../theme';
@@ -14,7 +16,7 @@ type Props = NativeStackScreenProps<RootStackParamList, 'Billing'>;
 
 const paymentModes: PaymentMode[] = ['Cash', 'UPI', 'Credit'];
 
-type DraftLine = { lineId: string; productId: string; quantity: string };
+type DraftLine = { lineId: string; productId: string; quantity: string; volume?: string; volumeUnit?: string; actualPrice?: string };
 
 const makeLineId = () => `l-${Date.now()}-${Math.random().toString(36).slice(2, 5)}`;
 
@@ -22,6 +24,7 @@ export function BillingScreen({ navigation }: Props) {
   const createInvoice = useAppStore((s) => s.createInvoice);
   const editInvoice = useAppStore((s) => s.editInvoice);
   const deleteInvoice = useAppStore((s) => s.deleteInvoice);
+  const addCustomer = useAppStore((s) => s.addCustomer);
   const customers = useAppStore((s) => s.customers);
   const invoices = useAppStore((s) => s.invoices);
   const products = useAppStore((s) => s.products);
@@ -32,22 +35,45 @@ export function BillingScreen({ navigation }: Props) {
   ]);
   const [paymentMode, setPaymentMode] = useState<PaymentMode>('Cash');
   const [reference, setReference] = useState('');
+  const [bhada, setBhada] = useState('');
+  const [influencerName, setInfluencerName] = useState('');
+  const [influencerContact, setInfluencerContact] = useState('');
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
+
+  // Add customer modal
+  const [showAddCustomer, setShowAddCustomer] = useState(false);
 
   // Edit invoice
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editPaymentMode, setEditPaymentMode] = useState<PaymentMode>('Cash');
   const [editReference, setEditReference] = useState('');
 
+  // Transaction popup
+  const [showTransactionPopup, setShowTransactionPopup] = useState(false);
+  const [pendingInvoiceData, setPendingInvoiceData] = useState<{
+    customerId: string;
+    lines: { productId: string; quantity: number }[];
+    paymentMode: PaymentMode;
+    reference?: string;
+    total: number;
+    customerName: string;
+    bhada?: number;
+    influencerName?: string;
+    influencerContact?: string;
+  } | null>(null);
+
   const previewTotal = useMemo(() => {
-    return draftLines.reduce((sum, line) => {
+    const lineTotal = draftLines.reduce((sum, line) => {
       const product = products.find((p) => p.id === line.productId);
       const qty = parseWholeNumberInput(line.quantity);
       if (!product || !qty) return sum;
-      return sum + product.price * qty;
+      const pricePerUnit = line.actualPrice ? parseWholeNumberInput(line.actualPrice) : product.price;
+      return sum + (pricePerUnit || 0) * qty;
     }, 0);
-  }, [draftLines, products]);
+    const bhadaAmount = parseWholeNumberInput(bhada);
+    return lineTotal + (bhadaAmount || 0);
+  }, [draftLines, products, bhada]);
 
   const addLine = () => {
     setDraftLines((prev) => [
@@ -60,10 +86,25 @@ export function BillingScreen({ navigation }: Props) {
     setDraftLines((prev) => prev.filter((l) => l.lineId !== lineId));
   };
 
-  const updateLine = (lineId: string, field: 'productId' | 'quantity', value: string) => {
+  const updateLine = (lineId: string, field: 'productId' | 'quantity' | 'actualPrice', value: string) => {
     setDraftLines((prev) =>
       prev.map((l) => (l.lineId === lineId ? { ...l, [field]: value } : l))
     );
+  };
+
+  const handleAddCustomer = (name: string, phone: string, address: string) => {
+    const result = addCustomer({ name, phone, address });
+    if (result.success) {
+      setShowAddCustomer(false);
+      const newCustomer = useAppStore.getState().customers.find((c) => c.name === name);
+      if (newCustomer) {
+        setCustomerId(newCustomer.id);
+      }
+      setSuccess('Customer added successfully! Now continue with billing.');
+      setTimeout(() => setSuccess(''), 2000);
+    } else {
+      setError(result.message ?? 'Failed to add customer');
+    }
   };
 
   const handleCreateInvoice = () => {
@@ -75,7 +116,38 @@ export function BillingScreen({ navigation }: Props) {
       quantity: parseWholeNumberInput(l.quantity) ?? 0,
     }));
 
-    const result = createInvoice({ customerId, lines: resolvedLines, paymentMode, reference: reference || undefined });
+    const customer = customers.find((c) => c.id === customerId);
+    if (!customer) {
+      setError('Customer not selected.');
+      return;
+    }
+
+    setPendingInvoiceData({
+      customerId,
+      lines: resolvedLines,
+      paymentMode,
+      reference: reference || undefined,
+      total: previewTotal,
+      customerName: customer.name,
+      bhada: parseWholeNumberInput(bhada) || undefined,
+      influencerName: influencerName || undefined,
+      influencerContact: influencerContact || undefined,
+    });
+    setShowTransactionPopup(true);
+  };
+
+  const handleTransactionConfirm = (amountPaid: number, discrepancy: number) => {
+    if (!pendingInvoiceData) return;
+
+    const result = createInvoice({
+      customerId: pendingInvoiceData.customerId,
+      lines: pendingInvoiceData.lines,
+      paymentMode: pendingInvoiceData.paymentMode,
+      reference: pendingInvoiceData.reference,
+      bhada: pendingInvoiceData.bhada,
+      influencerName: pendingInvoiceData.influencerName,
+      influencerContact: pendingInvoiceData.influencerContact,
+    });
 
     if (!result.success) {
       setError(result.message ?? 'Unable to create invoice.');
@@ -84,7 +156,20 @@ export function BillingScreen({ navigation }: Props) {
 
     setDraftLines([{ lineId: makeLineId(), productId: products[0]?.id ?? '', quantity: '1' }]);
     setReference('');
-    setSuccess('Invoice created successfully.');
+    setBhada('');
+    setInfluencerName('');
+    setInfluencerContact('');
+    setPendingInvoiceData(null);
+
+    if (discrepancy > 0 && discrepancy < 100) {
+      setSuccess(`Invoice saved. Underpayment of ${formatCurrency(discrepancy)} rounded off.`);
+    } else if (discrepancy > 0) {
+      setSuccess(`Invoice saved. Debit of ${formatCurrency(discrepancy)} recorded.`);
+    } else if (discrepancy < 0) {
+      setSuccess(`Invoice saved. Overpayment of ${formatCurrency(Math.abs(discrepancy))} credited.`);
+    } else {
+      setSuccess('Invoice created successfully.');
+    }
     setTimeout(() => setSuccess(''), 3000);
   };
 
@@ -133,7 +218,15 @@ export function BillingScreen({ navigation }: Props) {
       <SectionCard title="New Invoice" description="Add one or more items, select customer and payment mode.">
 
         {/* Customer */}
-        <Text style={styles.groupLabel}>Customer</Text>
+        <View style={styles.customerHeader}>
+          <Text style={styles.groupLabel}>Customer</Text>
+          <Pressable
+            onPress={() => setShowAddCustomer(true)}
+            style={styles.addCustomerButton}
+          >
+            <Text style={styles.addCustomerButtonText}>+ Add New</Text>
+          </Pressable>
+        </View>
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chipWrap}>
           {customers.map((c) => (
             <Pressable
@@ -153,7 +246,9 @@ export function BillingScreen({ navigation }: Props) {
         {draftLines.map((line, idx) => {
           const selectedProduct = products.find((p) => p.id === line.productId);
           const qty = parseWholeNumberInput(line.quantity);
-          const lineTotal = selectedProduct && qty ? selectedProduct.price * qty : 0;
+          const actualPricePerUnit = line.actualPrice ? parseWholeNumberInput(line.actualPrice) : null;
+          const pricePerUnit = actualPricePerUnit ?? selectedProduct?.price ?? 0;
+          const lineTotal = selectedProduct && qty ? pricePerUnit * qty : 0;
 
           return (
             <View key={line.lineId} style={styles.lineCard}>
@@ -192,12 +287,63 @@ export function BillingScreen({ navigation }: Props) {
                 <View style={styles.lineTotalBox}>
                   {selectedProduct ? (
                     <Text style={styles.lineTotalHint}>
-                      {formatCurrency(selectedProduct.price)} × {qty ?? 0}
+                      {formatCurrency(pricePerUnit)} × {qty ?? 0}
                     </Text>
                   ) : null}
                   <Text style={styles.lineTotalValue}>{formatCurrency(lineTotal)}</Text>
                 </View>
               </View>
+
+              {/* Price Flexibility - Admin vs Actual Price */}
+              {selectedProduct && (
+                <View style={styles.priceFlexibilityRow}>
+                  <View style={styles.priceColumn}>
+                    <Text style={styles.priceLabel}>Admin Price</Text>
+                    <Text style={styles.adminPriceValue}>{formatCurrency(selectedProduct.price)}</Text>
+                  </View>
+                  <View style={styles.priceColumn}>
+                    <Text style={styles.priceLabel}>Actual Price</Text>
+                    <TextInput
+                      value={line.actualPrice || selectedProduct.price.toString()}
+                      onChangeText={(v) => updateLine(line.lineId, 'actualPrice', v)}
+                      keyboardType="numeric"
+                      placeholder="0"
+                      placeholderTextColor={theme.colors.muted}
+                      style={[
+                        styles.actualPriceInput,
+                        {
+                          borderColor: line.actualPrice
+                            ? parseInt(line.actualPrice) > selectedProduct.price
+                              ? '#10B981'
+                              : parseInt(line.actualPrice) < selectedProduct.price
+                              ? '#EF4444'
+                              : theme.colors.border
+                            : theme.colors.border,
+                        },
+                      ]}
+                    />
+                  </View>
+                  {line.actualPrice && parseInt(line.actualPrice) !== selectedProduct.price && (
+                    <View style={styles.priceVarianceBox}>
+                      <Text
+                        style={[
+                          styles.priceVarianceText,
+                          {
+                            color:
+                              parseInt(line.actualPrice) > selectedProduct.price
+                                ? '#10B981'
+                                : '#EF4444',
+                          },
+                        ]}
+                      >
+                        {parseInt(line.actualPrice) > selectedProduct.price
+                          ? `+₹${parseInt(line.actualPrice) - selectedProduct.price}`
+                          : `-₹${selectedProduct.price - parseInt(line.actualPrice)}`}
+                      </Text>
+                    </View>
+                  )}
+                </View>
+              )}
 
               {selectedProduct ? (
                 <Text style={styles.stockHint}>
@@ -235,6 +381,35 @@ export function BillingScreen({ navigation }: Props) {
             style={styles.input}
           />
         ) : null}
+
+        {/* Bhada (Delivery Fees) */}
+        <Text style={styles.groupLabel}>Bhada (Delivery Fees) - Optional</Text>
+        <TextInput
+          value={bhada}
+          onChangeText={setBhada}
+          keyboardType="numeric"
+          placeholder="Enter delivery fees (₹)"
+          placeholderTextColor={theme.colors.muted}
+          style={styles.input}
+        />
+
+        {/* Influencer Details */}
+        <Text style={styles.groupLabel}>Influencer Details - Optional</Text>
+        <TextInput
+          value={influencerName}
+          onChangeText={setInfluencerName}
+          placeholder="Influencer name"
+          placeholderTextColor={theme.colors.muted}
+          style={styles.input}
+        />
+        <TextInput
+          value={influencerContact}
+          onChangeText={setInfluencerContact}
+          keyboardType="phone-pad"
+          placeholder="Influencer contact (optional)"
+          placeholderTextColor={theme.colors.muted}
+          style={styles.input}
+        />
 
         {/* Total preview */}
         <View style={styles.totalRow}>
@@ -318,6 +493,27 @@ export function BillingScreen({ navigation }: Props) {
           </View>
         ))}
       </SectionCard>
+
+      {/* Transaction popup */}
+      {pendingInvoiceData && (
+        <TransactionPopup
+          visible={showTransactionPopup}
+          totalAmount={pendingInvoiceData.total}
+          customerName={pendingInvoiceData.customerName}
+          onClose={() => {
+            setShowTransactionPopup(false);
+            setPendingInvoiceData(null);
+          }}
+          onConfirm={handleTransactionConfirm}
+        />
+      )}
+
+      {/* Add Customer Modal */}
+      <AddCustomerModal
+        visible={showAddCustomer}
+        onClose={() => setShowAddCustomer(false)}
+        onAdd={handleAddCustomer}
+      />
     </ScreenShell>
   );
 }
@@ -328,6 +524,11 @@ const styles = StyleSheet.create({
     backgroundColor: theme.colors.panelRaised, borderWidth: 1, borderColor: theme.colors.border,
   },
   backButtonText: { color: theme.colors.primary, fontSize: 13, fontWeight: '700' },
+
+  customerHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 14, marginBottom: 8 },
+  addCustomerButton: { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 6, backgroundColor: theme.colors.accent, borderWidth: 0 },
+  addCustomerButtonText: { color: '#FFFFFF', fontSize: 12, fontWeight: '700' },
+
   groupLabel: {
     marginTop: 14, marginBottom: 8, color: theme.colors.text,
     fontSize: 13, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 0.5,
@@ -349,13 +550,32 @@ const styles = StyleSheet.create({
   removeText: { color: theme.colors.negative, fontSize: 13, fontWeight: '700' },
   lineInputRow: { flexDirection: 'row', gap: 10, alignItems: 'center' },
   qtyInput: {
-    flex: 1, borderRadius: 10, borderWidth: 1.5, borderColor: theme.colors.border,
+    flex: 0.6, borderRadius: 10, borderWidth: 1.5, borderColor: theme.colors.border,
     backgroundColor: theme.colors.panel, color: theme.colors.text,
     paddingHorizontal: 14, paddingVertical: 11, fontSize: 15,
   },
   lineTotalBox: { alignItems: 'flex-end' },
   lineTotalHint: { color: theme.colors.muted, fontSize: 11 },
   lineTotalValue: { color: theme.colors.text, fontSize: 16, fontWeight: '800' },
+  priceFlexibilityRow: {
+    flexDirection: 'row',
+    gap: 10,
+    alignItems: 'flex-end',
+    marginTop: 10,
+    paddingTop: 10,
+    borderTopWidth: 1,
+    borderTopColor: theme.colors.border,
+  },
+  priceColumn: { flex: 1 },
+  priceLabel: { color: theme.colors.muted, fontSize: 11, fontWeight: '600', marginBottom: 4 },
+  adminPriceValue: { color: theme.colors.text, fontSize: 13, fontWeight: '700' },
+  actualPriceInput: {
+    borderRadius: 8, borderWidth: 1.5, backgroundColor: theme.colors.panelRaised, color: theme.colors.text,
+    paddingHorizontal: 10, paddingVertical: 8, fontSize: 13, fontWeight: '700',
+  },
+  priceVarianceBox: { paddingHorizontal: 8, paddingVertical: 6, borderRadius: 6, backgroundColor: theme.colors.panelRaised },
+  priceVarianceText: { fontSize: 12, fontWeight: '700' },
+
   stockHint: { color: theme.colors.muted, fontSize: 12, fontWeight: '500' },
   addLineButton: {
     marginTop: 10, borderRadius: 10, borderWidth: 1.5, borderColor: theme.colors.primary,

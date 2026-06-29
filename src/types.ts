@@ -58,6 +58,7 @@ export type Product = {
   price: number;
   stockLeft: number;
   minimumStock: number;
+  measurementUnit?: string;
 };
 
 export type Customer = {
@@ -84,18 +85,34 @@ export type InvoiceLine = {
   productName: string;
   quantity: number;
   unitPrice: number;
+  actualPrice?: number;
+  adminPrice?: number;
   lineTotal: number;
+  volume?: number;
+  volumeUnit?: string;
+  profit?: number;
+  materialDetails?: string;
 };
 
 export type Invoice = {
   id: string;
   customerId: string;
   customerName: string;
+  customerPhone?: string;
+  customerAddress?: string;
   paymentMode: PaymentMode;
   reference?: string;
   lines: InvoiceLine[];
   total: number;
   createdAt: string;
+  amountPaid?: number;
+  discrepancy?: number;
+  discrepancyMarkedResolved?: boolean;
+  priceVariance?: number;
+  priceVariancePercentage?: number;
+  bhada?: number;
+  influencerName?: string;
+  influencerContact?: string;
 };
 
 export type AppUser = {
@@ -105,7 +122,7 @@ export type AppUser = {
   pin: string;
 };
 
-export type ExpenseCategory = 'Shop' | 'Labour' | 'Delivery' | 'Purchase' | 'Misc';
+export type ExpenseCategory = 'Shop' | 'Labour' | 'Delivery' | 'Purchase' | 'Purchase Bills' | 'Cash Management' | 'Misc';
 
 export type ExpenseEntry = {
   id: string;
@@ -133,4 +150,23 @@ export type AttendanceRecord = {
   employeeName: string;
   date: string;
   status: AttendanceStatus;
+};
+
+export type GoodsPurchase = {
+  id: string;
+  itemName: string;
+  description: string;
+  purchaseAmount: number;
+  purchaseDate: string;
+  notes?: string;
+};
+
+export type GoodsSale = {
+  id: string;
+  purchaseId: string;
+  itemName: string;
+  saleAmount: number;
+  saleDate: string;
+  status: 'Partial' | 'Full';
+  notes?: string;
 };
