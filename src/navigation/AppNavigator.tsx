@@ -1,9 +1,9 @@
-import { useEffect } from 'react';
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { StatusBar } from 'expo-status-bar';
-import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
 
+import { SplashScreen } from '../screens/SplashScreen';
+import { ProfessionalLoginScreen } from '../screens/ProfessionalLoginScreen';
 import { DashboardScreen } from '../screens/DashboardScreen';
 import { DailyHisaabScreen } from '../screens/DailyHisaabScreen';
 import { CustomerLedgerScreen } from '../screens/CustomerLedgerScreen';
@@ -18,34 +18,13 @@ import { ComprehensiveLedgerScreen } from '../screens/ComprehensiveLedgerScreen'
 import { GoodsBatchScreen } from '../screens/GoodsBatchScreen';
 import { SuppliersScreen } from '../screens/SuppliersScreen';
 import { InfluencerScreen } from '../screens/InfluencerScreen';
-import { useAppStore } from '../store/useAppStore';
+import { SettingsScreen } from '../screens/SettingsScreen';
 import { theme } from '../theme';
 import { RootStackParamList } from './types';
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
 
 export function AppNavigator() {
-  const initialize = useAppStore((state) => state.initialize);
-  const signIn = useAppStore((state) => state.signIn);
-  const isReady = useAppStore((state) => state.isReady);
-
-  useEffect(() => {
-    void initialize().then(() => {
-      signIn('admin', '1234');
-    });
-  }, [initialize, signIn]);
-
-  if (!isReady) {
-    return (
-      <View style={styles.loadingScreen}>
-        <StatusBar style="dark" />
-        <ActivityIndicator size="large" color={theme.colors.primary} />
-        <Text style={styles.loadingTitle}>KLENTEC BMS</Text>
-        <Text style={styles.loadingCopy}>Loading your offline workspace…</Text>
-      </View>
-    );
-  }
-
   return (
     <NavigationContainer>
       <StatusBar style="dark" />
@@ -54,7 +33,13 @@ export function AppNavigator() {
           headerShown: false,
           contentStyle: { backgroundColor: theme.colors.background },
         }}
+        initialRouteName="Splash"
       >
+        {/* Auth Screens */}
+        <Stack.Screen name="Splash" component={SplashScreen} />
+        <Stack.Screen name="ProLogin" component={ProfessionalLoginScreen} />
+
+        {/* App Screens */}
         <Stack.Screen name="Dashboard" component={DashboardScreen} />
         <Stack.Screen name="DailyLedger" component={DailyHisaabScreen} />
         <Stack.Screen name="CustomerLedger" component={CustomerLedgerScreen} />
@@ -69,30 +54,8 @@ export function AppNavigator() {
         <Stack.Screen name="GoodsBatch" component={GoodsBatchScreen} />
         <Stack.Screen name="Deliveries" component={DeliveriesScreen} />
         <Stack.Screen name="Employees" component={EmployeeScreen} />
+        <Stack.Screen name="Settings" component={SettingsScreen} />
       </Stack.Navigator>
     </NavigationContainer>
   );
 }
-
-const styles = StyleSheet.create({
-  loadingScreen: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 12,
-    paddingHorizontal: 24,
-    backgroundColor: theme.colors.background,
-  },
-  loadingTitle: {
-    color: theme.colors.primary,
-    fontSize: 22,
-    fontWeight: '800',
-    letterSpacing: -0.5,
-  },
-  loadingCopy: {
-    color: theme.colors.muted,
-    fontSize: 14,
-    lineHeight: 20,
-    textAlign: 'center',
-  },
-});

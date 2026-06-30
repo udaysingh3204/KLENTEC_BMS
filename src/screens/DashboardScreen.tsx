@@ -84,9 +84,14 @@ export function DashboardScreen({ navigation }: Props) {
       title={`${role.label} Dashboard`}
       subtitle={`Welcome back · ${new Date().toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'short' })}`}
       action={
-        <Pressable onPress={signOut} style={styles.signOutButton}>
-          <Text style={styles.signOutButtonText}>Sign out</Text>
-        </Pressable>
+        <View style={styles.actionButtons}>
+          <Pressable onPress={() => navigation.navigate('Settings')} style={styles.settingsButton}>
+            <Text style={styles.settingsButtonText}>⚙️ Settings</Text>
+          </Pressable>
+          <Pressable onPress={signOut} style={styles.signOutButton}>
+            <Text style={styles.signOutButtonText}>Sign out</Text>
+          </Pressable>
+        </View>
       }
     >
       <View style={styles.statsGrid}>
@@ -178,6 +183,23 @@ export function DashboardScreen({ navigation }: Props) {
 }
 
 const styles = StyleSheet.create({
+  actionButtons: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  settingsButton: {
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 10,
+    backgroundColor: theme.colors.primary + '20',
+    borderWidth: 1,
+    borderColor: theme.colors.primary,
+  },
+  settingsButtonText: {
+    color: theme.colors.primary,
+    fontSize: 12,
+    fontWeight: '700',
+  },
   signOutButton: {
     paddingHorizontal: 14,
     paddingVertical: 9,
