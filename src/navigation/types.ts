@@ -14,4 +14,5 @@ export type RootStackParamList = {
   Deliveries: undefined;
   Employees: undefined;
   GoodsBatch: undefined;
+  Influencer: undefined;
 };

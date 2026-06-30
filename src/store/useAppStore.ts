@@ -37,6 +37,7 @@ import {
   ExpenseEntry,
   GoodsPurchase,
   GoodsSale,
+  Influencer,
   Invoice,
   InvoiceLine,
   PaymentMode,
@@ -87,6 +88,23 @@ type AddGoodsSaleInput = {
   purchaseId: string;
   saleAmount: number;
   status: 'Partial' | 'Full';
+  notes?: string;
+};
+
+type AddInfluencerInput = {
+  name: string;
+  phone: string;
+  email?: string;
+  commissionRate: number;
+  notes?: string;
+};
+
+type UpdateInfluencerInput = {
+  name?: string;
+  phone?: string;
+  email?: string;
+  commissionRate?: number;
+  status?: 'Active' | 'Inactive';
   notes?: string;
 };
 
@@ -181,6 +199,7 @@ type AppState = {
   attendance: AttendanceRecord[];
   goodsPurchases: GoodsPurchase[];
   goodsSales: GoodsSale[];
+  influencers: Influencer[];
   initialize: () => Promise<void>;
   signIn: (roleId: AppUser['roleId'], pin: string) => ActionResult;
   signOut: () => void;
@@ -205,6 +224,9 @@ type AppState = {
   markAttendance: (employeeId: string, status: AttendanceStatus) => void;
   addGoodsPurchase: (input: AddGoodsPurchaseInput) => ActionResult;
   addGoodsSale: (input: AddGoodsSaleInput) => ActionResult;
+  addInfluencer: (input: AddInfluencerInput) => ActionResult;
+  updateInfluencer: (id: string, input: UpdateInfluencerInput) => ActionResult;
+  deleteInfluencer: (id: string) => ActionResult;
 };
 
 const createId = (prefix: string) => `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
@@ -248,6 +270,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   attendance: initialAttendance,
   goodsPurchases: [],
   goodsSales: [],
+  influencers: [],
 
   initialize: async () => {
     if (get().isReady) return;
@@ -769,6 +792,63 @@ export const useAppStore = create<AppState>((set, get) => ({
 
     const nextSales = [sale, ...state.goodsSales];
     set({ goodsSales: nextSales });
+    return { success: true };
+  },
+
+  addInfluencer: (input) => {
+    const state = get();
+    if (!input.name.trim() || !input.phone.trim()) {
+      return { success: false, error: 'Name and phone are required' };
+    }
+
+    if (input.commissionRate < 0 || input.commissionRate > 100) {
+      return { success: false, error: 'Commission rate must be 0-100' };
+    }
+
+    const influencer: Influencer = {
+      id: createId('inf'),
+      name: input.name,
+      phone: input.phone,
+      email: input.email,
+      commissionRate: input.commissionRate,
+      totalReferrals: 0,
+      totalCommissionEarned: 0,
+      status: 'Active',
+      notes: input.notes,
+      createdAt: new Date().toISOString(),
+    };
+
+    const nextInfluencers = [influencer, ...state.influencers];
+    set({ influencers: nextInfluencers });
+    return { success: true };
+  },
+
+  updateInfluencer: (id, input) => {
+    const state = get();
+    const influencer = state.influencers.find((inf) => inf.id === id);
+    if (!influencer) {
+      return { success: false, error: 'Influencer not found' };
+    }
+
+    const updated: Influencer = {
+      ...influencer,
+      name: input.name ?? influencer.name,
+      phone: input.phone ?? influencer.phone,
+      email: input.email ?? influencer.email,
+      commissionRate: input.commissionRate ?? influencer.commissionRate,
+      status: input.status ?? influencer.status,
+      notes: input.notes !== undefined ? input.notes : influencer.notes,
+    };
+
+    const nextInfluencers = state.influencers.map((inf) => (inf.id === id ? updated : inf));
+    set({ influencers: nextInfluencers });
+    return { success: true };
+  },
+
+  deleteInfluencer: (id) => {
+    const state = get();
+    const filtered = state.influencers.filter((inf) => inf.id !== id);
+    set({ influencers: filtered });
     return { success: true };
   },
 }));

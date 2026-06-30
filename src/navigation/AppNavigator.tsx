@@ -17,6 +17,7 @@ import { InventoryScreen } from '../screens/InventoryScreen';
 import { ComprehensiveLedgerScreen } from '../screens/ComprehensiveLedgerScreen';
 import { GoodsBatchScreen } from '../screens/GoodsBatchScreen';
 import { SuppliersScreen } from '../screens/SuppliersScreen';
+import { InfluencerScreen } from '../screens/InfluencerScreen';
 import { useAppStore } from '../store/useAppStore';
 import { theme } from '../theme';
 import { RootStackParamList } from './types';
@@ -62,6 +63,7 @@ export function AppNavigator() {
         <Stack.Screen name="Billing" component={BillingScreen} />
         <Stack.Screen name="Customers" component={CustomersScreen} />
         <Stack.Screen name="Suppliers" component={SuppliersScreen} />
+        <Stack.Screen name="Influencer" component={InfluencerScreen} />
         <Stack.Screen name="CashFlow" component={CashFlowScreen} />
         <Stack.Screen name="Reports" component={ComprehensiveLedgerScreen} />
         <Stack.Screen name="GoodsBatch" component={GoodsBatchScreen} />

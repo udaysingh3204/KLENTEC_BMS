@@ -178,3 +178,16 @@ export type GoodsSale = {
   status: 'Partial' | 'Full';
   notes?: string;
 };
+
+export type Influencer = {
+  id: string;
+  name: string;
+  phone: string;
+  email?: string;
+  commissionRate: number;
+  totalReferrals: number;
+  totalCommissionEarned: number;
+  status: 'Active' | 'Inactive';
+  notes?: string;
+  createdAt: string;
+};
