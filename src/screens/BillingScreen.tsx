@@ -36,6 +36,9 @@ export function BillingScreen({ navigation }: Props) {
   const [paymentMode, setPaymentMode] = useState<PaymentMode>('Cash');
   const [reference, setReference] = useState('');
   const [bhada, setBhada] = useState('');
+  const [dala, setDala] = useState('');
+  const [cashPaid, setCashPaid] = useState('');
+  const [upiPaid, setUpiPaid] = useState('');
   const [influencerName, setInfluencerName] = useState('');
   const [influencerContact, setInfluencerContact] = useState('');
   const [upiAccount, setUpiAccount] = useState<'Firm' | 'Personal'>('Firm');
@@ -63,6 +66,9 @@ export function BillingScreen({ navigation }: Props) {
     total: number;
     customerName: string;
     bhada?: number;
+    dala?: number;
+    cashPaid?: number;
+    upiPaid?: number;
     influencerName?: string;
     influencerContact?: string;
     upiAccount?: 'Firm' | 'Personal';
@@ -80,8 +86,9 @@ export function BillingScreen({ navigation }: Props) {
       return sum + (pricePerUnit || 0) * qty;
     }, 0);
     const bhadaAmount = parseWholeNumberInput(bhada);
-    return lineTotal + (bhadaAmount || 0);
-  }, [draftLines, products, bhada]);
+    const dalaAmount = parseWholeNumberInput(dala);
+    return lineTotal + (bhadaAmount || 0) + (dalaAmount || 0);
+  }, [draftLines, products, bhada, dala]);
 
   const addLine = () => {
     setDraftLines((prev) => [
@@ -138,6 +145,9 @@ export function BillingScreen({ navigation }: Props) {
       total: previewTotal,
       customerName: customer.name,
       bhada: parseWholeNumberInput(bhada) || undefined,
+      dala: parseWholeNumberInput(dala) || undefined,
+      cashPaid: parseWholeNumberInput(cashPaid) || undefined,
+      upiPaid: parseWholeNumberInput(upiPaid) || undefined,
       influencerName: influencerName || undefined,
       influencerContact: influencerContact || undefined,
       upiAccount: paymentMode === 'UPI' ? upiAccount : undefined,
@@ -157,6 +167,9 @@ export function BillingScreen({ navigation }: Props) {
       paymentMode: pendingInvoiceData.paymentMode,
       reference: pendingInvoiceData.reference,
       bhada: pendingInvoiceData.bhada,
+      dala: pendingInvoiceData.dala,
+      cashPaid: pendingInvoiceData.cashPaid || amountPaid,
+      upiPaid: pendingInvoiceData.upiPaid,
       influencerName: pendingInvoiceData.influencerName,
       influencerContact: pendingInvoiceData.influencerContact,
       upiAccount: pendingInvoiceData.upiAccount,
@@ -173,6 +186,9 @@ export function BillingScreen({ navigation }: Props) {
     setDraftLines([{ lineId: makeLineId(), productId: products[0]?.id ?? '', quantity: '1' }]);
     setReference('');
     setBhada('');
+    setDala('');
+    setCashPaid('');
+    setUpiPaid('');
     setInfluencerName('');
     setInfluencerContact('');
     setUpiAccount('Firm');
@@ -427,13 +443,40 @@ export function BillingScreen({ navigation }: Props) {
           </>
         ) : null}
 
-        {/* Bhada (Delivery Fees) */}
-        <Text style={styles.groupLabel}>Bhada (Delivery Fees) - Optional</Text>
+        {/* Bhada (Delivery Fees) & Dala */}
+        <Text style={styles.groupLabel}>Bhada & Dala - Optional</Text>
         <TextInput
           value={bhada}
           onChangeText={setBhada}
           keyboardType="numeric"
-          placeholder="Enter delivery fees (₹)"
+          placeholder="Bhada - delivery fees (₹)"
+          placeholderTextColor={theme.colors.muted}
+          style={styles.input}
+        />
+        <TextInput
+          value={dala}
+          onChangeText={setDala}
+          keyboardType="numeric"
+          placeholder="Dala - worker/driver payment (₹)"
+          placeholderTextColor={theme.colors.muted}
+          style={styles.input}
+        />
+
+        {/* Split Payment (Cash + UPI) */}
+        <Text style={styles.groupLabel}>Payment Split - Optional (if both Cash & UPI)</Text>
+        <TextInput
+          value={cashPaid}
+          onChangeText={setCashPaid}
+          keyboardType="numeric"
+          placeholder="Cash paid (₹)"
+          placeholderTextColor={theme.colors.muted}
+          style={styles.input}
+        />
+        <TextInput
+          value={upiPaid}
+          onChangeText={setUpiPaid}
+          keyboardType="numeric"
+          placeholder="UPI paid (₹)"
           placeholderTextColor={theme.colors.muted}
           style={styles.input}
         />

@@ -63,6 +63,9 @@ type CreateInvoiceInput = {
   paymentMode: PaymentMode;
   reference?: string;
   bhada?: number;
+  dala?: number;
+  cashPaid?: number;
+  upiPaid?: number;
   influencerName?: string;
   influencerContact?: string;
   upiAccount?: UPIAccount;
@@ -507,7 +510,7 @@ export const useAppStore = create<AppState>((set, get) => ({
     void persistProducts(nextProducts);
   },
 
-  createInvoice: ({ customerId, lines, paymentMode, reference, bhada, influencerName, influencerContact, upiAccount, employeeName, invoiceNumber, notes }) => {
+  createInvoice: ({ customerId, lines, paymentMode, reference, bhada, dala, cashPaid, upiPaid, influencerName, influencerContact, upiAccount, employeeName, invoiceNumber, notes }) => {
     const state = get();
     const customer = state.customers.find((c) => c.id === customerId);
     if (!customer) {
@@ -557,6 +560,9 @@ export const useAppStore = create<AppState>((set, get) => ({
       createdAt: new Date().toISOString(),
       lines: resolvedLines,
       bhada,
+      dala,
+      cashPaid,
+      upiPaid,
       influencerName,
       influencerContact,
       upiAccount,

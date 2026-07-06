@@ -113,9 +113,12 @@ export type Invoice = {
   priceVariance?: number;
   priceVariancePercentage?: number;
   bhada?: number;
+  dala?: number;
   influencerName?: string;
   influencerContact?: string;
   upiAccount?: UPIAccount;
+  cashPaid?: number;
+  upiPaid?: number;
   employeeName?: string;
   invoiceNumber?: string;
   notes?: string;

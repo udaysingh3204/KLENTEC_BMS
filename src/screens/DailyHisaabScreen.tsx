@@ -33,23 +33,40 @@ export function DailyHisaabScreen({ navigation }: Props) {
     const dayExpenses = expenses.filter((e) => e.createdAt.split('T')[0] === dateStr);
 
     // Prepare invoice rows
-    const invoiceRows = dayInvoices.map((inv) => ({
-      id: inv.id,
-      type: 'invoice' as const,
-      time: inv.createdAt.split('T')[1]?.substring(0, 5) || '',
-      amount: inv.total,
-      mode: inv.paymentMode,
-      name: inv.customerName,
-      address: inv.customerAddress || '',
-      products: inv.lines.map((l) => l.productName).join(', '),
-      credit: inv.paymentMode === 'Credit' ? inv.total : 0,
-      bhada: inv.bhada || 0,
-      influencer: inv.influencerName ? `${inv.influencerName}${inv.influencerContact ? ' (' + inv.influencerContact + ')' : ''}` : '',
-      notes: inv.reference || '',
-      invoiceData: inv,
-    }));
+    const invoiceRows = dayInvoices.map((inv) => {
+      // Calculate credit/udhar: total - amountPaid
+      const amountPaid = inv.amountPaid || 0;
+      const udhar = inv.total - amountPaid;
+
+      // Determine payment display
+      let paymentDisplay = inv.paymentMode;
+      if (inv.cashPaid && inv.upiPaid) {
+        paymentDisplay = 'Cash+UPI' as any;
+      } else if (inv.upiAccount && inv.paymentMode === 'UPI') {
+        paymentDisplay = `UPI (${inv.upiAccount})` as any;
+      }
+
+      return {
+        id: inv.id,
+        type: 'invoice' as const,
+        time: inv.createdAt.split('T')[1]?.substring(0, 5) || '',
+        amount: inv.total,
+        mode: paymentDisplay,
+        name: inv.customerName,
+        address: inv.customerAddress || '',
+        products: inv.lines.map((l) => l.productName).join(', '),
+        credit: udhar > 0 ? udhar : 0,
+        bhada: inv.bhada || 0,
+        dala: inv.dala || 0,
+        influencer: inv.influencerName ? `${inv.influencerName}${inv.influencerContact ? ' (' + inv.influencerContact + ')' : ''}` : '',
+        notes: '',
+        invoiceData: inv,
+      };
+    });
 
     // Prepare expense rows
+    // Also deduct dala from shop expense if any dala was paid
+    const totalDalaPaid = dayInvoices.reduce((sum, inv) => sum + (inv.dala || 0), 0);
     const expenseRows = dayExpenses.map((exp) => ({
       id: exp.id,
       type: 'expense' as const,
@@ -61,6 +78,7 @@ export function DailyHisaabScreen({ navigation }: Props) {
       products: exp.category,
       credit: 0,
       bhada: 0,
+      dala: exp.category === 'Shop' ? totalDalaPaid : 0,
       influencer: '',
       notes: exp.title,
     }));
@@ -71,27 +89,40 @@ export function DailyHisaabScreen({ navigation }: Props) {
     // Calculate totals
     const totalIncome = dayInvoices.reduce((sum, inv) => sum + inv.total, 0);
     const totalExpense = dayExpenses.reduce((sum, exp) => sum + exp.amount, 0);
-    const totalCredit = dayInvoices
-      .filter((inv) => inv.paymentMode === 'Credit')
-      .reduce((sum, inv) => sum + inv.total, 0);
-    const totalCash = dayInvoices
-      .filter((inv) => inv.paymentMode === 'Cash')
-      .reduce((sum, inv) => sum + inv.total, 0);
-    const totalUPI = dayInvoices
-      .filter((inv) => inv.paymentMode === 'UPI')
-      .reduce((sum, inv) => sum + inv.total, 0);
+
+    // FIX: Calculate udhar (credit) = total - amountPaid for ALL invoices
+    const totalUdhar = dayInvoices.reduce((sum, inv) => {
+      const amountPaid = inv.amountPaid || 0;
+      const udhar = Math.max(0, inv.total - amountPaid);
+      return sum + udhar;
+    }, 0);
+
+    const totalCash = dayInvoices.reduce((sum, inv) => {
+      if (inv.paymentMode === 'Cash') return sum + inv.total;
+      if (inv.cashPaid) return sum + inv.cashPaid;
+      return sum;
+    }, 0);
+
+    const totalUPI = dayInvoices.reduce((sum, inv) => {
+      if (inv.paymentMode === 'UPI') return sum + inv.total;
+      if (inv.upiPaid) return sum + inv.upiPaid;
+      return sum;
+    }, 0);
+
     const totalBhada = dayInvoices.reduce((sum, inv) => sum + (inv.bhada || 0), 0);
+    const totalDala = dayInvoices.reduce((sum, inv) => sum + (inv.dala || 0), 0);
 
     return {
       rows: allRows,
       totalIncome,
       totalExpense,
-      totalCredit,
+      totalUdhar,
       totalCash,
       totalUPI,
       totalBhada,
+      totalDala,
       netProfit: totalIncome - totalExpense,
-      cashAvailable: totalCash + totalUPI - totalExpense,
+      cashAvailable: totalCash + totalUPI - totalExpense - totalDala,
     };
   }, [invoices, expenses, currentDate]);
 
@@ -139,14 +170,20 @@ export function DailyHisaabScreen({ navigation }: Props) {
             </Text>
           </View>
           <View style={styles.breakdownItem}>
-            <Text style={styles.breakdownLabel}>💳 Credit</Text>
+            <Text style={styles.breakdownLabel}>💸 Udhar</Text>
             <Text style={[styles.breakdownValue, { color: theme.colors.accent }]}>
-              {formatCurrency(dailyData.totalCredit)}
+              {formatCurrency(dailyData.totalUdhar)}
             </Text>
           </View>
           <View style={styles.breakdownItem}>
             <Text style={styles.breakdownLabel}>🚚 Bhada</Text>
             <Text style={styles.breakdownValue}>{formatCurrency(dailyData.totalBhada)}</Text>
+          </View>
+          <View style={styles.breakdownItem}>
+            <Text style={styles.breakdownLabel}>👤 Dala</Text>
+            <Text style={[styles.breakdownValue, { color: theme.colors.negative }]}>
+              {formatCurrency(dailyData.totalDala)}
+            </Text>
           </View>
         </View>
       </SectionCard>
@@ -166,8 +203,9 @@ export function DailyHisaabScreen({ navigation }: Props) {
                 <Text style={[styles.cell, styles.nameCell, styles.headerCell]}>Name</Text>
                 <Text style={[styles.cell, styles.productsCell, styles.headerCell]}>Products</Text>
                 <Text style={[styles.cell, styles.addressCell, styles.headerCell]}>Address</Text>
-                <Text style={[styles.cell, styles.creditCell, styles.headerCell]}>Credit</Text>
+                <Text style={[styles.cell, styles.creditCell, styles.headerCell]}>Udhar</Text>
                 <Text style={[styles.cell, styles.bhadaCell, styles.headerCell]}>Bhada</Text>
+                <Text style={[styles.cell, styles.dalaCell, styles.headerCell]}>Dala</Text>
                 <Text style={[styles.cell, styles.influencerCell, styles.headerCell]}>Influencer</Text>
               </View>
 
@@ -202,6 +240,9 @@ export function DailyHisaabScreen({ navigation }: Props) {
                   </Text>
                   <Text style={[styles.cell, styles.bhadaCell]}>
                     {row.bhada > 0 ? formatCurrency(row.bhada) : '—'}
+                  </Text>
+                  <Text style={[styles.cell, styles.dalaCell]}>
+                    {row.dala > 0 ? formatCurrency(row.dala) : '—'}
                   </Text>
                   <Text style={[styles.cell, styles.influencerCell]}>{row.influencer || '—'}</Text>
                 </Pressable>
@@ -332,6 +373,7 @@ const styles = StyleSheet.create({
   addressCell: { width: 140 },
   creditCell: { width: 70, fontWeight: '600' },
   bhadaCell: { width: 70, fontWeight: '600' },
+  dalaCell: { width: 70, fontWeight: '600' },
   influencerCell: { width: 140 },
 
   cashSummaryRow: { gap: 12 },
