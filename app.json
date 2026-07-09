@@ -1,6 +1,6 @@
 {
   "expo": {
-    "name": "KLENTEC BMS",
+    "name": "Building Material Shop",
     "slug": "klentec-bms",
     "version": "1.0.0",
     "orientation": "portrait",
@@ -14,14 +14,14 @@
     },
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.klentec.bms"
+      "bundleIdentifier": "com.buildingmaterialshop.app"
     },
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#1B4F8A"
       },
-      "package": "com.klentec.bms",
+      "package": "com.buildingmaterialshop.app",
       "edgeToEdgeEnabled": true,
       "predictiveBackGestureEnabled": false
     },

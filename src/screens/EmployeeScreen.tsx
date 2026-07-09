@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Alert, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 
 import { ScreenShell } from '../components/ScreenShell';
@@ -24,6 +24,8 @@ const todayStr = () => new Date().toISOString().split('T')[0];
 
 export function EmployeeScreen({ navigation }: Props) {
   const addEmployee = useAppStore((s) => s.addEmployee);
+  const deleteEmployee = useAppStore((s) => s.deleteEmployee);
+  const editEmployee = useAppStore((s) => s.editEmployee);
   const attendance = useAppStore((s) => s.attendance);
   const employees = useAppStore((s) => s.employees);
   const markAttendance = useAppStore((s) => s.markAttendance);
@@ -33,6 +35,13 @@ export function EmployeeScreen({ navigation }: Props) {
   const [role, setRole] = useState('Driver');
   const [salary, setSalary] = useState('');
   const [error, setError] = useState('');
+
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editName, setEditName] = useState('');
+  const [editPhone, setEditPhone] = useState('');
+  const [editRole, setEditRole] = useState('Driver');
+  const [editSalary, setEditSalary] = useState('');
+  const [editError, setEditError] = useState('');
 
   const today = todayStr();
   const todayAttendance = useMemo(
@@ -67,6 +76,50 @@ export function EmployeeScreen({ navigation }: Props) {
     setRole('Driver');
     setSalary('');
     setError('');
+  };
+
+  const handleEditEmployee = (id: string) => {
+    const emp = employees.find((e) => e.id === id);
+    if (!emp) return;
+    setEditingId(id);
+    setEditName(emp.name);
+    setEditPhone(emp.phone);
+    setEditRole(emp.role);
+    setEditSalary(String(emp.salary));
+    setEditError('');
+  };
+
+  const handleSaveEdit = () => {
+    if (!editingId) return;
+    const parsedSalary = parseWholeNumberInput(editSalary);
+    if (!parsedSalary) {
+      setEditError('Salary must be a positive whole number.');
+      return;
+    }
+    const result = editEmployee(editingId, { name: editName, phone: editPhone, role: editRole, salary: parsedSalary });
+    if (!result.success) {
+      setEditError(result.message ?? 'Unable to save.');
+      return;
+    }
+    setEditingId(null);
+  };
+
+  const handleDeleteEmployee = (id: string) => {
+    const emp = employees.find((e) => e.id === id);
+    if (!emp) return;
+    Alert.alert('Delete Employee', `Remove ${emp.name} from the system?`, [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Delete',
+        style: 'destructive',
+        onPress: () => {
+          const result = deleteEmployee(id);
+          if (!result.success) {
+            Alert.alert('Error', result.message ?? 'Unable to delete.');
+          }
+        },
+      },
+    ]);
   };
 
   return (
@@ -191,16 +244,13 @@ export function EmployeeScreen({ navigation }: Props) {
               <Text style={styles.directoryMeta}>{employee.role} · {employee.phone}</Text>
               <Text style={styles.directorySalary}>{formatCurrency(employee.salary)} / month</Text>
             </View>
-            <View style={[
-              styles.statusBadge,
-              employee.status === 'Active' ? styles.statusActive : styles.statusInactive,
-            ]}>
-              <Text style={[
-                styles.statusText,
-                employee.status === 'Active' ? styles.statusTextActive : styles.statusTextInactive,
-              ]}>
-                {employee.status}
-              </Text>
+            <View style={styles.directoryActions}>
+              <Pressable onPress={() => handleEditEmployee(employee.id)} style={styles.editButton}>
+                <Text style={styles.editButtonText}>✏️</Text>
+              </Pressable>
+              <Pressable onPress={() => handleDeleteEmployee(employee.id)} style={styles.deleteButton}>
+                <Text style={styles.deleteButtonText}>🗑️</Text>
+              </Pressable>
             </View>
           </View>
         ))}
@@ -208,6 +258,36 @@ export function EmployeeScreen({ navigation }: Props) {
           <Text style={styles.emptyText}>No employees added yet.</Text>
         ) : null}
       </SectionCard>
+
+      {/* Edit modal */}
+      {editingId && (
+        <SectionCard title="Edit Employee" description="Update employee details">
+          <TextInput value={editName} onChangeText={setEditName} placeholder="Full name" placeholderTextColor={theme.colors.muted} style={styles.input} />
+          <TextInput value={editPhone} onChangeText={setEditPhone} placeholder="Mobile number" placeholderTextColor={theme.colors.muted} keyboardType="phone-pad" style={styles.input} />
+          <TextInput value={editSalary} onChangeText={setEditSalary} placeholder="Monthly salary (₹)" placeholderTextColor={theme.colors.muted} keyboardType="numeric" style={styles.input} />
+          <Text style={styles.groupLabel}>Role</Text>
+          <View style={styles.chipWrap}>
+            {ROLES.map((r) => (
+              <Pressable
+                key={r}
+                onPress={() => setEditRole(r)}
+                style={[styles.chip, editRole === r ? styles.chipActive : null]}
+              >
+                <Text style={[styles.chipText, editRole === r ? styles.chipTextActive : null]}>{r}</Text>
+              </Pressable>
+            ))}
+          </View>
+          {editError ? <Text style={styles.error}>{editError}</Text> : null}
+          <View style={styles.buttonRow}>
+            <Pressable onPress={() => setEditingId(null)} style={styles.secondaryButton}>
+              <Text style={styles.secondaryButtonText}>Cancel</Text>
+            </Pressable>
+            <Pressable onPress={handleSaveEdit} style={styles.primaryButton}>
+              <Text style={styles.primaryButtonText}>Save</Text>
+            </Pressable>
+          </View>
+        </SectionCard>
+      )}
     </ScreenShell>
   );
 }
@@ -326,6 +406,11 @@ const styles = StyleSheet.create({
   directoryName: { color: theme.colors.text, fontSize: 15, fontWeight: '700' },
   directoryMeta: { color: theme.colors.muted, fontSize: 13, marginTop: 2 },
   directorySalary: { color: theme.colors.primary, fontSize: 13, fontWeight: '600', marginTop: 2 },
+  directoryActions: { flexDirection: 'row', gap: 8 },
+  editButton: { paddingHorizontal: 8, paddingVertical: 6, borderRadius: 6, backgroundColor: theme.colors.panelRaised, borderWidth: 1, borderColor: theme.colors.border },
+  editButtonText: { fontSize: 14 },
+  deleteButton: { paddingHorizontal: 8, paddingVertical: 6, borderRadius: 6, backgroundColor: '#FEE2E2', borderWidth: 1, borderColor: '#F87171' },
+  deleteButtonText: { fontSize: 14 },
   statusBadge: { paddingHorizontal: 10, paddingVertical: 5, borderRadius: 999, borderWidth: 1 },
   statusActive: { backgroundColor: '#D1FAE5', borderColor: '#10B981' },
   statusInactive: { backgroundColor: '#FEE2E2', borderColor: '#F87171' },
@@ -333,4 +418,7 @@ const styles = StyleSheet.create({
   statusTextActive: { color: '#065F46' },
   statusTextInactive: { color: '#991B1B' },
   emptyText: { color: theme.colors.muted, fontSize: 14, textAlign: 'center', paddingVertical: 16 },
+  buttonRow: { flexDirection: 'row', gap: 10, marginTop: 14 },
+  secondaryButton: { flex: 1, borderRadius: 12, backgroundColor: theme.colors.panelRaised, borderWidth: 1.5, borderColor: theme.colors.border, paddingVertical: 14, alignItems: 'center' },
+  secondaryButtonText: { color: theme.colors.text, fontSize: 15, fontWeight: '700' },
 });

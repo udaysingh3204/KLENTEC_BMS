@@ -85,6 +85,9 @@ export function DashboardScreen({ navigation }: Props) {
       subtitle={`Welcome back · ${new Date().toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'short' })}`}
       action={
         <View style={styles.actionButtons}>
+          <Pressable onPress={() => navigation.navigate('DailySettlement')} style={styles.settlementButton}>
+            <Text style={styles.settlementButtonText}>💰 Settlement</Text>
+          </Pressable>
           <Pressable onPress={() => navigation.navigate('Settings')} style={styles.settingsButton}>
             <Text style={styles.settingsButtonText}>⚙️ Settings</Text>
           </Pressable>
@@ -197,6 +200,19 @@ const styles = StyleSheet.create({
   },
   settingsButtonText: {
     color: theme.colors.primary,
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  settlementButton: {
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 10,
+    backgroundColor: theme.colors.accent + '20' || theme.colors.positive + '20',
+    borderWidth: 1,
+    borderColor: theme.colors.accent || theme.colors.positive,
+  },
+  settlementButtonText: {
+    color: theme.colors.accent || theme.colors.positive,
     fontSize: 12,
     fontWeight: '700',
   },

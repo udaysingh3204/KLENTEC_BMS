@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Alert, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 
 import { ScreenShell } from '../components/ScreenShell';
@@ -15,6 +15,8 @@ const supplierStatuses: Supplier['status'][] = ['Active', 'Inactive'];
 
 export function SuppliersScreen({ navigation }: Props) {
   const addSupplier = useAppStore((s) => s.addSupplier);
+  const deleteSupplier = useAppStore((s) => s.deleteSupplier);
+  const editSupplier = useAppStore((s) => s.editSupplier);
   const suppliers = useAppStore((s) => s.suppliers);
 
   const [name, setName] = useState('');
@@ -26,6 +28,16 @@ export function SuppliersScreen({ navigation }: Props) {
   const [status, setStatus] = useState<Supplier['status']>('Active');
   const [error, setError] = useState('');
   const [search, setSearch] = useState('');
+
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editName, setEditName] = useState('');
+  const [editContactPerson, setEditContactPerson] = useState('');
+  const [editPhone, setEditPhone] = useState('');
+  const [editAddress, setEditAddress] = useState('');
+  const [editCategory, setEditCategory] = useState('');
+  const [editMaterials, setEditMaterials] = useState('');
+  const [editStatus, setEditStatus] = useState<Supplier['status']>('Active');
+  const [editError, setEditError] = useState('');
 
   const activeSuppliers = useMemo(
     () => suppliers.filter((s) => s.status === 'Active').length,
@@ -49,6 +61,45 @@ export function SuppliersScreen({ navigation }: Props) {
     if (!result.success) { setError(result.message ?? 'Unable to save.'); return; }
     setName(''); setContactPerson(''); setPhone(''); setAddress('');
     setCategory(''); setMaterials(''); setStatus('Active'); setError('');
+  };
+
+  const handleEditSupplier = (id: string) => {
+    const sup = suppliers.find((s) => s.id === id);
+    if (!sup) return;
+    setEditingId(id);
+    setEditName(sup.name);
+    setEditContactPerson(sup.contactPerson);
+    setEditPhone(sup.phone);
+    setEditAddress(sup.address);
+    setEditCategory(sup.category);
+    setEditMaterials(sup.materials);
+    setEditStatus(sup.status);
+    setEditError('');
+  };
+
+  const handleSaveEdit = () => {
+    if (!editingId) return;
+    const result = editSupplier(editingId, { name: editName, contactPerson: editContactPerson, phone: editPhone, address: editAddress, category: editCategory, materials: editMaterials, status: editStatus });
+    if (!result.success) { setEditError(result.message ?? 'Unable to save.'); return; }
+    setEditingId(null);
+  };
+
+  const handleDeleteSupplier = (id: string) => {
+    const sup = suppliers.find((s) => s.id === id);
+    if (!sup) return;
+    Alert.alert('Delete Supplier', `Remove ${sup.name} from suppliers?`, [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Delete',
+        style: 'destructive',
+        onPress: () => {
+          const result = deleteSupplier(id);
+          if (!result.success) {
+            Alert.alert('Error', result.message ?? 'Unable to delete.');
+          }
+        },
+      },
+    ]);
   };
 
   return (
@@ -126,10 +177,13 @@ export function SuppliersScreen({ navigation }: Props) {
                 <Text style={styles.supplierName}>{supplier.name}</Text>
                 <Text style={styles.supplierMeta}>{supplier.category} · {supplier.contactPerson}</Text>
               </View>
-              <View style={[styles.badge, supplier.status === 'Active' ? styles.badgeActive : styles.badgeInactive]}>
-                <Text style={[styles.badgeText, supplier.status === 'Active' ? styles.badgeTextActive : styles.badgeTextInactive]}>
-                  {supplier.status}
-                </Text>
+              <View style={styles.supplierActions}>
+                <Pressable onPress={() => handleEditSupplier(supplier.id)} style={styles.editButton}>
+                  <Text style={styles.editButtonText}>✏️</Text>
+                </Pressable>
+                <Pressable onPress={() => handleDeleteSupplier(supplier.id)} style={styles.deleteButton}>
+                  <Text style={styles.deleteButtonText}>🗑️</Text>
+                </Pressable>
               </View>
             </View>
             <View style={styles.detailRow}>
@@ -144,9 +198,48 @@ export function SuppliersScreen({ navigation }: Props) {
               <Text style={styles.detailLabel}>Materials</Text>
               <Text style={styles.detailValue}>{supplier.materials}</Text>
             </View>
+            <View style={[styles.badge, supplier.status === 'Active' ? styles.badgeActive : styles.badgeInactive]}>
+              <Text style={[styles.badgeText, supplier.status === 'Active' ? styles.badgeTextActive : styles.badgeTextInactive]}>
+                {supplier.status}
+              </Text>
+            </View>
           </View>
         ))}
       </SectionCard>
+
+      {/* Edit modal */}
+      {editingId && (
+        <SectionCard title="Edit Supplier" description="Update supplier details">
+          <TextInput value={editName} onChangeText={setEditName} placeholder="Supplier / company name" placeholderTextColor={theme.colors.muted} style={styles.input} />
+          <TextInput value={editContactPerson} onChangeText={setEditContactPerson} placeholder="Contact person" placeholderTextColor={theme.colors.muted} style={styles.input} />
+          <TextInput value={editPhone} onChangeText={setEditPhone} keyboardType="phone-pad" placeholder="Mobile number" placeholderTextColor={theme.colors.muted} style={styles.input} />
+          <TextInput value={editAddress} onChangeText={setEditAddress} placeholder="Address or market location" placeholderTextColor={theme.colors.muted} style={styles.input} />
+          <TextInput value={editCategory} onChangeText={setEditCategory} placeholder="Primary category" placeholderTextColor={theme.colors.muted} style={styles.input} />
+          <TextInput value={editMaterials} onChangeText={setEditMaterials} placeholder="Materials supplied" placeholderTextColor={theme.colors.muted} style={[styles.input, styles.multilineInput]} multiline />
+          <View style={styles.statusRow}>
+            {supplierStatuses.map((entry) => (
+              <Pressable
+                key={entry}
+                onPress={() => setEditStatus(entry)}
+                style={[styles.statusChip, editStatus === entry ? styles.statusChipSelected : null]}
+              >
+                <Text style={[styles.statusChipText, editStatus === entry ? styles.statusChipTextSelected : null]}>
+                  {entry}
+                </Text>
+              </Pressable>
+            ))}
+          </View>
+          {editError ? <Text style={styles.error}>{editError}</Text> : null}
+          <View style={styles.buttonRow}>
+            <Pressable onPress={() => setEditingId(null)} style={styles.secondaryButton}>
+              <Text style={styles.secondaryButtonText}>Cancel</Text>
+            </Pressable>
+            <Pressable onPress={handleSaveEdit} style={styles.primaryButton}>
+              <Text style={styles.primaryButtonText}>Save</Text>
+            </Pressable>
+          </View>
+        </SectionCard>
+      )}
     </ScreenShell>
   );
 }
@@ -202,4 +295,12 @@ const styles = StyleSheet.create({
   detailRow: { flexDirection: 'row', gap: 8 },
   detailLabel: { color: theme.colors.muted, fontSize: 12, fontWeight: '700', width: 64 },
   detailValue: { flex: 1, color: theme.colors.text, fontSize: 13, lineHeight: 19 },
+  supplierActions: { flexDirection: 'row', gap: 8 },
+  editButton: { paddingHorizontal: 8, paddingVertical: 6, borderRadius: 6, backgroundColor: theme.colors.panelRaised, borderWidth: 1, borderColor: theme.colors.border },
+  editButtonText: { fontSize: 14 },
+  deleteButton: { paddingHorizontal: 8, paddingVertical: 6, borderRadius: 6, backgroundColor: '#FEE2E2', borderWidth: 1, borderColor: '#F87171' },
+  deleteButtonText: { fontSize: 14 },
+  buttonRow: { flexDirection: 'row', gap: 10, marginTop: 14 },
+  secondaryButton: { flex: 1, borderRadius: 12, backgroundColor: theme.colors.panelRaised, borderWidth: 1.5, borderColor: theme.colors.border, paddingVertical: 14, alignItems: 'center' },
+  secondaryButtonText: { color: theme.colors.text, fontSize: 15, fontWeight: '700' },
 });

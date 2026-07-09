@@ -64,6 +64,7 @@ type CreateInvoiceInput = {
   reference?: string;
   bhada?: number;
   dala?: number;
+  amountPaid?: number;
   cashPaid?: number;
   upiPaid?: number;
   influencerName?: string;
@@ -160,6 +161,13 @@ type AddEmployeeInput = {
   salary: number;
 };
 
+type EditEmployeeInput = {
+  name: string;
+  phone: string;
+  role: string;
+  salary: number;
+};
+
 type ReceivePaymentInput = {
   customerId: string;
   amount: number;
@@ -206,6 +214,9 @@ type AppState = {
   initialize: () => Promise<void>;
   signIn: (roleId: AppUser['roleId'], pin: string) => ActionResult;
   signOut: () => void;
+  changePIN: (oldPin: string, newPin: string) => ActionResult;
+  createBackup: () => Promise<string>;
+  restoreBackup: (backupJson: string) => ActionResult;
   addProduct: (input: AddProductInput) => ActionResult;
   editProduct: (input: EditProductInput) => ActionResult;
   deleteProduct: (productId: string) => ActionResult;
@@ -213,8 +224,12 @@ type AppState = {
   editCustomer: (input: EditCustomerInput) => ActionResult;
   deleteCustomer: (customerId: string) => ActionResult;
   addSupplier: (input: AddSupplierInput) => ActionResult;
+  editSupplier: (id: string, input: AddSupplierInput) => ActionResult;
+  deleteSupplier: (id: string) => ActionResult;
   addExpense: (input: AddExpenseInput) => ActionResult;
   addEmployee: (input: AddEmployeeInput) => ActionResult;
+  editEmployee: (id: string, input: EditEmployeeInput) => ActionResult;
+  deleteEmployee: (id: string) => ActionResult;
   adjustProductStock: (productId: string, delta: number) => void;
   createInvoice: (input: CreateInvoiceInput) => ActionResult;
   editInvoice: (input: EditInvoiceInput) => ActionResult;
@@ -278,6 +293,18 @@ export const useAppStore = create<AppState>((set, get) => ({
   initialize: async () => {
     if (get().isReady) return;
     const snapshot = await loadAppSnapshot();
+
+    // Create default admin user on first launch if no users exist
+    if (!snapshot.users || snapshot.users.length === 0) {
+      const defaultAdmin: AppUser = {
+        id: 'admin-default',
+        roleId: 'admin',
+        label: 'Admin',
+        pin: '1234',
+      };
+      snapshot.users = [defaultAdmin];
+    }
+
     set({ ...snapshot, isReady: true });
   },
 
@@ -294,6 +321,95 @@ export const useAppStore = create<AppState>((set, get) => ({
   signOut: () => {
     set({ currentUser: null });
     void persistCurrentUser(null);
+  },
+
+  changePIN: (oldPin: string, newPin: string) => {
+    const currentUser = get().currentUser;
+    if (!currentUser) {
+      return { success: false, message: 'No user logged in' };
+    }
+
+    if (currentUser.pin !== oldPin) {
+      return { success: false, message: 'Current PIN is incorrect' };
+    }
+
+    if (newPin.length !== 4 || !/^\d+$/.test(newPin)) {
+      return { success: false, message: 'PIN must be 4 digits' };
+    }
+
+    const updatedUser = { ...currentUser, pin: newPin };
+    set({ currentUser: updatedUser });
+
+    const updatedUsers = get().users.map((u) =>
+      u.id === currentUser.id ? updatedUser : u
+    );
+    set({ users: updatedUsers });
+
+    void persistCurrentUser(updatedUser);
+
+    return { success: true, message: 'PIN changed successfully' };
+  },
+
+  createBackup: async () => {
+    const state = get();
+    const backup = {
+      version: '1.0.0',
+      timestamp: new Date().toISOString(),
+      data: {
+        invoices: state.invoices,
+        customers: state.customers,
+        products: state.products,
+        expenses: state.expenses,
+        employees: state.employees,
+        suppliers: state.suppliers,
+        activities: state.activities,
+        attendance: state.attendance,
+        goodsPurchases: state.goodsPurchases,
+        goodsSales: state.goodsSales,
+        influencers: state.influencers,
+      },
+    };
+
+    return JSON.stringify(backup, null, 2);
+  },
+
+  restoreBackup: (backupJson: string) => {
+    try {
+      const backup = JSON.parse(backupJson);
+
+      if (!backup.data || backup.version !== '1.0.0') {
+        return { success: false, message: 'Invalid backup file format' };
+      }
+
+      set({
+        invoices: backup.data.invoices || [],
+        customers: backup.data.customers || [],
+        products: backup.data.products || [],
+        expenses: backup.data.expenses || [],
+        employees: backup.data.employees || [],
+        suppliers: backup.data.suppliers || [],
+        activities: backup.data.activities || [],
+        attendance: backup.data.attendance || [],
+        goodsPurchases: backup.data.goodsPurchases || [],
+        goodsSales: backup.data.goodsSales || [],
+        influencers: backup.data.influencers || [],
+      });
+
+      void Promise.all([
+        persistInvoices(backup.data.invoices || []),
+        persistCustomers(backup.data.customers || []),
+        persistProducts(backup.data.products || []),
+        persistExpenses(backup.data.expenses || []),
+        persistEmployees(backup.data.employees || []),
+        persistSuppliers(backup.data.suppliers || []),
+        persistActivities(backup.data.activities || []),
+        persistAttendance(backup.data.attendance || []),
+      ]);
+
+      return { success: true, message: 'Backup restored successfully' };
+    } catch (error) {
+      return { success: false, message: 'Failed to restore backup. Invalid file.' };
+    }
   },
 
   addCustomer: (input) => {
@@ -364,6 +480,39 @@ export const useAppStore = create<AppState>((set, get) => ({
     ];
     const nextActivities = [
       createActivity('Supplier added', `${input.name} added to supplier directory.`),
+      ...state.activities,
+    ].slice(0, 20);
+    set({ suppliers: nextSuppliers, activities: nextActivities });
+    void persistCore({ ...state, suppliers: nextSuppliers, activities: nextActivities });
+    return { success: true };
+  },
+
+  editSupplier: (id, input) => {
+    const state = get();
+    const supplier = state.suppliers.find((s) => s.id === id);
+    if (!supplier) return { success: false, message: 'Supplier not found.' };
+    if (!input.name || !input.contactPerson || !input.phone || !input.address || !input.category || !input.materials) {
+      return { success: false, message: 'Complete all supplier details before saving.' };
+    }
+    const nextSuppliers = state.suppliers.map((s) =>
+      s.id === id ? { ...s, name: input.name, contactPerson: input.contactPerson, phone: input.phone, address: input.address, category: input.category, materials: input.materials, status: input.status } : s
+    );
+    const nextActivities = [
+      createActivity('Supplier updated', `${input.name} supplier information updated.`),
+      ...state.activities,
+    ].slice(0, 20);
+    set({ suppliers: nextSuppliers, activities: nextActivities });
+    void persistCore({ ...state, suppliers: nextSuppliers, activities: nextActivities });
+    return { success: true };
+  },
+
+  deleteSupplier: (id) => {
+    const state = get();
+    const supplier = state.suppliers.find((s) => s.id === id);
+    if (!supplier) return { success: false, message: 'Supplier not found.' };
+    const nextSuppliers = state.suppliers.filter((s) => s.id !== id);
+    const nextActivities = [
+      createActivity('Supplier removed', `${supplier.name} removed from supplier directory.`),
       ...state.activities,
     ].slice(0, 20);
     set({ suppliers: nextSuppliers, activities: nextActivities });
@@ -498,6 +647,45 @@ export const useAppStore = create<AppState>((set, get) => ({
     return { success: true };
   },
 
+  editEmployee: (id, input) => {
+    const state = get();
+    const employee = state.employees.find((e) => e.id === id);
+    if (!employee) return { success: false, message: 'Employee not found.' };
+    if (!input.name || !input.phone || !input.role) {
+      return { success: false, message: 'Name, phone, and role are required.' };
+    }
+    const normalizedSalary = normalizeMoney(input.salary);
+    if (!isPositiveInteger(normalizedSalary)) {
+      return { success: false, message: 'Salary must be a positive amount.' };
+    }
+    const nextEmployees = state.employees.map((e) =>
+      e.id === id ? { ...e, name: input.name, phone: input.phone, role: input.role, salary: normalizedSalary } : e
+    );
+    const nextActivities = [
+      createActivity('Employee updated', `${input.name} (${input.role}) information updated.`),
+      ...state.activities,
+    ].slice(0, 20);
+    set({ employees: nextEmployees, activities: nextActivities });
+    void persistEmployees(nextEmployees);
+    void persistActivities(nextActivities);
+    return { success: true };
+  },
+
+  deleteEmployee: (id) => {
+    const state = get();
+    const employee = state.employees.find((e) => e.id === id);
+    if (!employee) return { success: false, message: 'Employee not found.' };
+    const nextEmployees = state.employees.filter((e) => e.id !== id);
+    const nextActivities = [
+      createActivity('Employee removed', `${employee.name} removed from team.`),
+      ...state.activities,
+    ].slice(0, 20);
+    set({ employees: nextEmployees, activities: nextActivities });
+    void persistEmployees(nextEmployees);
+    void persistActivities(nextActivities);
+    return { success: true };
+  },
+
   adjustProductStock: (productId, delta) => {
     const state = get();
     if (!Number.isInteger(delta)) return;
@@ -510,7 +698,7 @@ export const useAppStore = create<AppState>((set, get) => ({
     void persistProducts(nextProducts);
   },
 
-  createInvoice: ({ customerId, lines, paymentMode, reference, bhada, dala, cashPaid, upiPaid, influencerName, influencerContact, upiAccount, employeeName, invoiceNumber, notes }) => {
+  createInvoice: ({ customerId, lines, paymentMode, reference, bhada, dala, amountPaid, cashPaid, upiPaid, influencerName, influencerContact, upiAccount, employeeName, invoiceNumber, notes }) => {
     const state = get();
     const customer = state.customers.find((c) => c.id === customerId);
     if (!customer) {
@@ -559,6 +747,7 @@ export const useAppStore = create<AppState>((set, get) => ({
       total,
       createdAt: new Date().toISOString(),
       lines: resolvedLines,
+      amountPaid,
       bhada,
       dala,
       cashPaid,

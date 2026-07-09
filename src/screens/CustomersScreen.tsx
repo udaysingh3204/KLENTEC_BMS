@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Alert, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 
 import { ScreenShell } from '../components/ScreenShell';
@@ -121,16 +121,24 @@ export function CustomersScreen({ navigation }: Props) {
 
   const handleDeleteCustomer = (customerId: string) => {
     const customer = customers.find((c) => c.id === customerId);
-    if (customer && confirm(`Delete customer "${customer.name}"? This cannot be undone.`)) {
-      const result = deleteCustomer(customerId);
-      if (!result.success) {
-        setPayError(result.message ?? 'Cannot delete.');
-        setTimeout(() => setPayError(''), 3000);
-      } else {
-        setPaySuccess('Customer deleted.');
-        setTimeout(() => setPaySuccess(''), 2000);
-      }
-    }
+    if (!customer) return;
+    Alert.alert('Delete Customer', `Remove "${customer.name}" from contacts?`, [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Delete',
+        style: 'destructive',
+        onPress: () => {
+          const result = deleteCustomer(customerId);
+          if (!result.success) {
+            setPayError(result.message ?? 'Cannot delete.');
+            setTimeout(() => setPayError(''), 3000);
+          } else {
+            setPaySuccess('Customer deleted.');
+            setTimeout(() => setPaySuccess(''), 2000);
+          }
+        },
+      },
+    ]);
   };
 
   return (

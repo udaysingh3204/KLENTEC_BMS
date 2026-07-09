@@ -41,16 +41,17 @@ export function SplashScreen({ navigation }: Props) {
         {/* Logo Section */}
         <View style={styles.logoSection}>
           <View style={styles.logoCircle}>
-            <Text style={styles.logoText}>K</Text>
+            <Text style={styles.logoText}>🏗️</Text>
           </View>
         </View>
 
         {/* Brand Name */}
-        <Text style={styles.brandName}>KLENTEC</Text>
-        <Text style={styles.brandSubtitle}>Business Management System</Text>
+        <Text style={styles.brandName}>Building Material</Text>
+        <Text style={styles.brandName2}>Shop</Text>
+        <Text style={styles.brandSubtitle}>Professional Billing & Inventory</Text>
 
         {/* Tagline */}
-        <Text style={styles.tagline}>Professional Ledger & Inventory Management</Text>
+        <Text style={styles.tagline}>Complete Business Management for Material Retailers</Text>
 
         {/* Loading Section */}
         <View style={styles.loadingSection}>
@@ -108,15 +109,23 @@ const styles = StyleSheet.create({
     color: theme.colors.primary,
     fontSize: 32,
     fontWeight: '900',
-    letterSpacing: 3,
+    letterSpacing: 2,
+    textAlign: 'center',
+  },
+  brandName2: {
+    color: theme.colors.accent || '#10B981',
+    fontSize: 28,
+    fontWeight: '800',
+    letterSpacing: 2,
     textAlign: 'center',
   },
   brandSubtitle: {
     color: theme.colors.text,
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: '600',
     textAlign: 'center',
-    letterSpacing: 1,
+    letterSpacing: 0.5,
+    marginTop: 4,
   },
   tagline: {
     color: theme.colors.muted,

@@ -19,6 +19,7 @@ import { GoodsBatchScreen } from '../screens/GoodsBatchScreen';
 import { SuppliersScreen } from '../screens/SuppliersScreen';
 import { InfluencerScreen } from '../screens/InfluencerScreen';
 import { SettingsScreen } from '../screens/SettingsScreen';
+import { DailySettlementScreen } from '../screens/DailySettlementScreen';
 import { theme } from '../theme';
 import { RootStackParamList } from './types';
 
@@ -55,6 +56,7 @@ export function AppNavigator() {
         <Stack.Screen name="Deliveries" component={DeliveriesScreen} />
         <Stack.Screen name="Employees" component={EmployeeScreen} />
         <Stack.Screen name="Settings" component={SettingsScreen} />
+        <Stack.Screen name="DailySettlement" component={DailySettlementScreen} />
       </Stack.Navigator>
     </NavigationContainer>
   );

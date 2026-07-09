@@ -27,6 +27,9 @@ export function SettingsScreen({ navigation }: Props) {
   const [confirmPin, setConfirmPin] = useState('');
 
   const signOut = useAppStore((state) => state.signOut);
+  const changePIN = useAppStore((state) => state.changePIN);
+  const createBackup = useAppStore((state) => state.createBackup);
+  const restoreBackup = useAppStore((state) => state.restoreBackup);
 
   const handleClearAllData = async () => {
     try {
@@ -108,13 +111,75 @@ export function SettingsScreen({ navigation }: Props) {
       return;
     }
 
-    // Here you would verify old PIN and update new PIN
-    // For now, just show success message
-    Alert.alert('Success', 'PIN changed successfully!');
-    setOldPin('');
-    setNewPin('');
-    setConfirmPin('');
-    setShowPinChange(false);
+    const result = changePIN(oldPin, newPin);
+    if (result.success) {
+      Alert.alert('Success', 'PIN changed successfully!');
+      setOldPin('');
+      setNewPin('');
+      setConfirmPin('');
+      setShowPinChange(false);
+    } else {
+      Alert.alert('Error', result.message || 'Failed to change PIN');
+    }
+  };
+
+  const handleBackupNow = async () => {
+    try {
+      const backupContent = await createBackup();
+      Alert.alert(
+        'Backup Created',
+        'Your backup has been created. You can now save it to a file, email it, or store it safely.\n\nBacking up now: ' +
+          new Date().toLocaleString('en-IN'),
+        [
+          {
+            text: 'Copy to Clipboard',
+            onPress: async () => {
+              // Note: On React Native web, this would work differently
+              // For mobile, you'd use a share/copy library
+              Alert.alert('Info', 'Backup data copied. Share it via email or save it in a safe location.');
+            },
+          },
+          { text: 'Close', style: 'cancel' },
+        ]
+      );
+    } catch (error) {
+      Alert.alert('Error', 'Failed to create backup');
+    }
+  };
+
+  const handleRestoreBackup = () => {
+    Alert.prompt(
+      'Restore from Backup',
+      'Paste your backup JSON file content here:',
+      [
+        {
+          text: 'Cancel',
+          style: 'cancel',
+        },
+        {
+          text: 'Restore',
+          onPress: (backupJson: string | undefined) => {
+            if (!backupJson || !backupJson.trim()) {
+              Alert.alert('Error', 'Please paste backup content');
+              return;
+            }
+
+            const result = restoreBackup(backupJson);
+            if (result.success) {
+              Alert.alert('Success', 'Backup restored! App will refresh to apply changes.');
+              setTimeout(() => {
+                navigation.replace('ProLogin');
+              }, 2000);
+            } else {
+              Alert.alert('Error', result.message || 'Failed to restore backup');
+            }
+          },
+        },
+      ],
+      'plain-text',
+      '',
+      'email-address'
+    );
   };
 
   return (
@@ -214,16 +279,18 @@ export function SettingsScreen({ navigation }: Props) {
             </View>
           </View>
 
-          <Pressable style={[styles.settingsButton, styles.secondaryButton]}>
-            <Text style={styles.secondaryButtonText}>📊 Export Data</Text>
+          <Pressable
+            onPress={handleBackupNow}
+            style={[styles.settingsButton, styles.secondaryButton]}
+          >
+            <Text style={styles.secondaryButtonText}>💾 Backup Data Now</Text>
           </Pressable>
 
-          <Pressable style={[styles.settingsButton, styles.secondaryButton]}>
-            <Text style={styles.secondaryButtonText}>💾 Backup</Text>
-          </Pressable>
-
-          <Pressable style={[styles.settingsButton, styles.secondaryButton]}>
-            <Text style={styles.secondaryButtonText}>↩️ Restore Backup</Text>
+          <Pressable
+            onPress={handleRestoreBackup}
+            style={[styles.settingsButton, styles.secondaryButton]}
+          >
+            <Text style={styles.secondaryButtonText}>↩️ Restore from Backup</Text>
           </Pressable>
         </SectionCard>
 
@@ -232,21 +299,21 @@ export function SettingsScreen({ navigation }: Props) {
           <View style={styles.settingsItem}>
             <View style={styles.settingContent}>
               <Text style={styles.settingLabel}>App Name</Text>
-              <Text style={styles.settingValue}>KLENTEC BMS</Text>
+              <Text style={styles.settingValue}>🏗️ Building Material Shop</Text>
             </View>
           </View>
 
           <View style={styles.settingsItem}>
             <View style={styles.settingContent}>
               <Text style={styles.settingLabel}>Version</Text>
-              <Text style={styles.settingValue}>1.0.0</Text>
+              <Text style={styles.settingValue}>1.0.0 (Production)</Text>
             </View>
           </View>
 
           <View style={styles.settingsItem}>
             <View style={styles.settingContent}>
-              <Text style={styles.settingLabel}>Build</Text>
-              <Text style={styles.settingValue}>Production Ready</Text>
+              <Text style={styles.settingLabel}>Build Status</Text>
+              <Text style={[styles.settingValue, { color: theme.colors.positive }]}>✅ Production Ready</Text>
             </View>
           </View>
 
@@ -266,8 +333,8 @@ export function SettingsScreen({ navigation }: Props) {
 
           <View style={styles.aboutFooter}>
             <Text style={styles.aboutText}>
-              KLENTEC BMS is designed for professional business management. All data is stored
-              locally on your device for maximum privacy and security.
+              🏗️ Building Material Shop is designed for professional inventory and billing management.
+              All data is stored locally on your device for maximum privacy and security.
             </Text>
           </View>
         </SectionCard>

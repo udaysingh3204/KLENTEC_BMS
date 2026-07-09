@@ -33,10 +33,14 @@ export function ComprehensiveLedgerScreen({ navigation }: Props) {
       .reduce((sum, e) => sum + e.amount, 0);
     const cashFlow = cashIncome - cashExpenses;
 
-    // UPI Flow
-    const upiIncome = dailyInvoices
-      .filter((i) => i.paymentMode === 'UPI')
-      .reduce((sum, i) => sum + i.total, 0);
+    // UPI Flow (includes split payments)
+    const upiIncome = dailyInvoices.reduce((sum, i) => {
+      // Count invoices with paymentMode === 'UPI'
+      if (i.paymentMode === 'UPI') return sum + i.total;
+      // Also count split payments (upiPaid from Cash+UPI splits)
+      if (i.upiPaid && i.upiPaid > 0) return sum + i.upiPaid;
+      return sum;
+    }, 0);
     const upiExpenses = dailyExpenses
       .filter((e) => e.paymentMode === 'UPI')
       .reduce((sum, e) => sum + e.amount, 0);

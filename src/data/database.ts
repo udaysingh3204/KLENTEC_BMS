@@ -40,6 +40,17 @@ type InvoiceRow = {
   total: number;
   createdAt: string;
   lines: string;
+  amountPaid?: number | null;
+  bhada?: number | null;
+  dala?: number | null;
+  cashPaid?: number | null;
+  upiPaid?: number | null;
+  influencerName?: string | null;
+  influencerContact?: string | null;
+  upiAccount?: string | null;
+  employeeName?: string | null;
+  invoiceNumber?: string | null;
+  notes?: string | null;
 };
 
 export type AppSnapshot = {
@@ -199,7 +210,18 @@ export async function initializeDatabase() {
       reference TEXT,
       total REAL NOT NULL,
       createdAt TEXT NOT NULL,
-      lines TEXT NOT NULL
+      lines TEXT NOT NULL,
+      amountPaid REAL,
+      bhada REAL,
+      dala REAL,
+      cashPaid REAL,
+      upiPaid REAL,
+      influencerName TEXT,
+      influencerContact TEXT,
+      upiAccount TEXT,
+      employeeName TEXT,
+      invoiceNumber TEXT,
+      notes TEXT
     );
     CREATE TABLE IF NOT EXISTS expenses (
       id TEXT PRIMARY KEY NOT NULL,
@@ -411,6 +433,17 @@ export async function loadAppSnapshot(): Promise<AppSnapshot> {
     total: row.total,
     createdAt: row.createdAt,
     lines: JSON.parse(row.lines),
+    amountPaid: row.amountPaid ?? undefined,
+    bhada: row.bhada ?? undefined,
+    dala: row.dala ?? undefined,
+    cashPaid: row.cashPaid ?? undefined,
+    upiPaid: row.upiPaid ?? undefined,
+    influencerName: row.influencerName ?? undefined,
+    influencerContact: row.influencerContact ?? undefined,
+    upiAccount: (row.upiAccount ?? undefined) as any,
+    employeeName: row.employeeName ?? undefined,
+    invoiceNumber: row.invoiceNumber ?? undefined,
+    notes: row.notes ?? undefined,
   }));
 
   const currentUser = users.find((user) => user.id === sessionRow?.value) ?? null;
@@ -509,7 +542,7 @@ export async function persistInvoices(invoices: Invoice[]) {
   await replaceTableRows(
     database,
     'invoices',
-    'INSERT INTO invoices (id, customerId, customerName, paymentMode, reference, total, createdAt, lines) VALUES (?, ?, ?, ?, ?, ?, ?, ?);',
+    'INSERT INTO invoices (id, customerId, customerName, paymentMode, reference, total, createdAt, lines, amountPaid, bhada, dala, cashPaid, upiPaid, influencerName, influencerContact, upiAccount, employeeName, invoiceNumber, notes) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);',
     invoices,
     (item) => [
       item.id,
@@ -520,6 +553,17 @@ export async function persistInvoices(invoices: Invoice[]) {
       item.total,
       item.createdAt,
       JSON.stringify(item.lines),
+      item.amountPaid ?? null,
+      item.bhada ?? null,
+      item.dala ?? null,
+      item.cashPaid ?? null,
+      item.upiPaid ?? null,
+      item.influencerName ?? null,
+      item.influencerContact ?? null,
+      item.upiAccount ?? null,
+      item.employeeName ?? null,
+      item.invoiceNumber ?? null,
+      item.notes ?? null,
     ]
   );
 }

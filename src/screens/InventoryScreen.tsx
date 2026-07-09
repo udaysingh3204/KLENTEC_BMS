@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Alert, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 
 import { ScreenShell } from '../components/ScreenShell';
@@ -125,9 +125,20 @@ export function InventoryScreen({ navigation }: Props) {
 
   const handleDeleteProduct = (productId: string) => {
     const product = products.find((p) => p.id === productId);
-    if (product && confirm(`Delete "${product.name}"? This cannot be undone.`)) {
-      deleteProduct(productId);
-    }
+    if (!product) return;
+    Alert.alert('Delete Product', `Remove "${product.name}" from inventory?`, [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Delete',
+        style: 'destructive',
+        onPress: () => {
+          const result = deleteProduct(productId);
+          if (!result.success) {
+            Alert.alert('Error', result.message ?? 'Unable to delete product.');
+          }
+        },
+      },
+    ]);
   };
 
   return (

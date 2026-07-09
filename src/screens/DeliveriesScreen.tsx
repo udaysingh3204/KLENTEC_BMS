@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Alert, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 
 import { ScreenShell } from '../components/ScreenShell';
@@ -91,11 +91,19 @@ export function DeliveriesScreen({ navigation }: Props) {
 
   const handleDeleteDelivery = (deliveryId: string) => {
     const delivery = deliveries.find((d) => d.id === deliveryId);
-    if (delivery && confirm(`Delete delivery for ${delivery.customer}? This cannot be undone.`)) {
-      deleteDelivery(deliveryId);
-      setEditSuccess('Delivery deleted.');
-      setTimeout(() => setEditSuccess(''), 2000);
-    }
+    if (!delivery) return;
+    Alert.alert('Delete Delivery', `Remove delivery for ${delivery.customer}?`, [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Delete',
+        style: 'destructive',
+        onPress: () => {
+          deleteDelivery(deliveryId);
+          setEditSuccess('Delivery deleted.');
+          setTimeout(() => setEditSuccess(''), 2000);
+        },
+      },
+    ]);
   };
 
   return (

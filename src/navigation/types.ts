@@ -1,8 +1,6 @@
 export type RootStackParamList = {
   Splash: undefined;
   ProLogin: undefined;
-  Welcome: undefined;
-  Login: undefined;
   Dashboard: undefined;
   DailyLedger: undefined;
   CustomerLedger: undefined;
@@ -18,4 +16,5 @@ export type RootStackParamList = {
   GoodsBatch: undefined;
   Influencer: undefined;
   Settings: undefined;
+  DailySettlement: undefined;
 };

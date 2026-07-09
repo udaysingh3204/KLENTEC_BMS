@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { ScrollView, StyleSheet, Text, View, Pressable } from 'react-native';
+import { Alert, ScrollView, StyleSheet, Text, View, Pressable, Share } from 'react-native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 
 import { ScreenShell } from '../components/ScreenShell';
@@ -11,12 +11,14 @@ import { Invoice } from '../types';
 import { theme } from '../theme';
 import { formatCurrency } from '../utils/finance';
 import { getTodayString, getFormattedDate } from '../utils/ledger';
+import { generateDailyLedgerCSV, generateDailyLedgerSummary, type ExcelExportData } from '../utils/excelExport';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'DailyLedger'>;
 
 export function DailyHisaabScreen({ navigation }: Props) {
   const invoices = useAppStore((s) => s.invoices);
   const expenses = useAppStore((s) => s.expenses);
+  const [exportError, setExportError] = useState('');
 
   const [currentDate, setCurrentDate] = useState(getTodayString());
   const [selectedTransaction, setSelectedTransaction] = useState<Invoice | null>(null);
@@ -34,9 +36,31 @@ export function DailyHisaabScreen({ navigation }: Props) {
 
     // Prepare invoice rows
     const invoiceRows = dayInvoices.map((inv) => {
-      // Calculate credit/udhar: total - amountPaid
+      // Calculate cash, upi, and udhar
       const amountPaid = inv.amountPaid || 0;
-      const udhar = inv.total - amountPaid;
+      const udhar = Math.max(0, inv.total - amountPaid);
+
+      // Calculate cash and UPI for this invoice
+      let cashAmount = 0;
+      let upiAmount = 0;
+
+      if (inv.paymentMode === 'Cash') {
+        cashAmount = inv.total;
+      } else if (inv.paymentMode === 'UPI') {
+        upiAmount = inv.total;
+      } else if (inv.paymentMode === 'Credit') {
+        // Credit: no cash/upi payment yet
+        cashAmount = 0;
+        upiAmount = 0;
+      }
+
+      // Handle split payments
+      if (inv.cashPaid) {
+        cashAmount = inv.cashPaid;
+      }
+      if (inv.upiPaid) {
+        upiAmount = inv.upiPaid;
+      }
 
       // Determine payment display
       let paymentDisplay = inv.paymentMode;
@@ -55,7 +79,9 @@ export function DailyHisaabScreen({ navigation }: Props) {
         name: inv.customerName,
         address: inv.customerAddress || '',
         products: inv.lines.map((l) => l.productName).join(', '),
-        credit: udhar > 0 ? udhar : 0,
+        cash: cashAmount,
+        upi: upiAmount,
+        udhar: udhar > 0 ? udhar : 0,
         bhada: inv.bhada || 0,
         dala: inv.dala || 0,
         influencer: inv.influencerName ? `${inv.influencerName}${inv.influencerContact ? ' (' + inv.influencerContact + ')' : ''}` : '',
@@ -126,14 +152,35 @@ export function DailyHisaabScreen({ navigation }: Props) {
     };
   }, [invoices, expenses, currentDate]);
 
+  const handleExportCSV = async () => {
+    try {
+      const csv = generateDailyLedgerCSV(dailyData as unknown as ExcelExportData);
+      const summary = generateDailyLedgerSummary(dailyData as unknown as ExcelExportData);
+      const content = summary + '\n\n' + csv;
+
+      await Share.share({
+        message: content,
+        title: `Daily Ledger - ${currentDate.split('T')[0]}`,
+      });
+    } catch (error) {
+      setExportError('Failed to export data');
+      setTimeout(() => setExportError(''), 3000);
+    }
+  };
+
   return (
     <ScreenShell
       title="दैनिक हिसाब (Daily Hisaab)"
       subtitle={`${getFormattedDate(currentDate)} • Complete Daily Ledger`}
       action={
-        <Pressable onPress={() => navigation.goBack()} style={styles.backButton}>
-          <Text style={styles.backButtonText}>← Back</Text>
-        </Pressable>
+        <View style={styles.actionButtons}>
+          <Pressable onPress={handleExportCSV} style={styles.exportButton}>
+            <Text style={styles.exportButtonText}>📊 Export CSV</Text>
+          </Pressable>
+          <Pressable onPress={() => navigation.goBack()} style={styles.backButton}>
+            <Text style={styles.backButtonText}>← Back</Text>
+          </Pressable>
+        </View>
       }
     >
       {/* Summary Cards */}
@@ -203,7 +250,9 @@ export function DailyHisaabScreen({ navigation }: Props) {
                 <Text style={[styles.cell, styles.nameCell, styles.headerCell]}>Name</Text>
                 <Text style={[styles.cell, styles.productsCell, styles.headerCell]}>Products</Text>
                 <Text style={[styles.cell, styles.addressCell, styles.headerCell]}>Address</Text>
-                <Text style={[styles.cell, styles.creditCell, styles.headerCell]}>Udhar</Text>
+                <Text style={[styles.cell, styles.cashCell, styles.headerCell]}>💵 Cash</Text>
+                <Text style={[styles.cell, styles.upiCell, styles.headerCell]}>📱 UPI</Text>
+                <Text style={[styles.cell, styles.udharCell, styles.headerCell]}>Udhar</Text>
                 <Text style={[styles.cell, styles.bhadaCell, styles.headerCell]}>Bhada</Text>
                 <Text style={[styles.cell, styles.dalaCell, styles.headerCell]}>Dala</Text>
                 <Text style={[styles.cell, styles.influencerCell, styles.headerCell]}>Influencer</Text>
@@ -235,8 +284,14 @@ export function DailyHisaabScreen({ navigation }: Props) {
                   <Text style={[styles.cell, styles.nameCell]}>{row.name}</Text>
                   <Text style={[styles.cell, styles.productsCell]}>{row.products}</Text>
                   <Text style={[styles.cell, styles.addressCell]}>{row.address}</Text>
-                  <Text style={[styles.cell, styles.creditCell]}>
-                    {row.credit > 0 ? formatCurrency(row.credit) : '—'}
+                  <Text style={[styles.cell, styles.cashCell, { color: 'cash' in row && row.cash > 0 ? theme.colors.positive : theme.colors.muted }]}>
+                    {'cash' in row && row.cash > 0 ? formatCurrency(row.cash) : '—'}
+                  </Text>
+                  <Text style={[styles.cell, styles.upiCell, { color: 'upi' in row && row.upi > 0 ? theme.colors.positive : theme.colors.muted }]}>
+                    {'upi' in row && row.upi > 0 ? formatCurrency(row.upi) : '—'}
+                  </Text>
+                  <Text style={[styles.cell, styles.udharCell, { color: 'udhar' in row && row.udhar > 0 ? theme.colors.negative : theme.colors.muted }]}>
+                    {'udhar' in row && row.udhar > 0 ? formatCurrency(row.udhar) : '—'}
                   </Text>
                   <Text style={[styles.cell, styles.bhadaCell]}>
                     {row.bhada > 0 ? formatCurrency(row.bhada) : '—'}
@@ -247,6 +302,36 @@ export function DailyHisaabScreen({ navigation }: Props) {
                   <Text style={[styles.cell, styles.influencerCell]}>{row.influencer || '—'}</Text>
                 </Pressable>
               ))}
+
+              {/* Total Row */}
+              {dailyData.rows.length > 0 && (
+                <View style={[styles.row, styles.totalRow]}>
+                  <Text style={[styles.cell, styles.timeCell, styles.totalCell]}>📊 TOTAL</Text>
+                  <Text style={[styles.cell, styles.amountCell, styles.totalCell, { color: theme.colors.primary, fontWeight: '800' }]}>
+                    {formatCurrency(dailyData.rows.reduce((sum, r) => sum + (r.type === 'invoice' ? r.amount : -r.amount), 0))}
+                  </Text>
+                  <Text style={[styles.cell, styles.modeCell, styles.totalCell]}>—</Text>
+                  <Text style={[styles.cell, styles.nameCell, styles.totalCell]}>—</Text>
+                  <Text style={[styles.cell, styles.productsCell, styles.totalCell]}>—</Text>
+                  <Text style={[styles.cell, styles.addressCell, styles.totalCell]}>—</Text>
+                  <Text style={[styles.cell, styles.cashCell, styles.totalCell, { color: theme.colors.positive, fontWeight: '800' }]}>
+                    {formatCurrency(dailyData.rows.reduce((sum, r) => sum + ('cash' in r ? r.cash : 0), 0))}
+                  </Text>
+                  <Text style={[styles.cell, styles.upiCell, styles.totalCell, { color: '#3B82F6', fontWeight: '800' }]}>
+                    {formatCurrency(dailyData.rows.reduce((sum, r) => sum + ('upi' in r ? r.upi : 0), 0))}
+                  </Text>
+                  <Text style={[styles.cell, styles.udharCell, styles.totalCell, { color: theme.colors.negative, fontWeight: '800' }]}>
+                    {formatCurrency(dailyData.rows.reduce((sum, r) => sum + ('udhar' in r ? r.udhar : 0), 0))}
+                  </Text>
+                  <Text style={[styles.cell, styles.bhadaCell, styles.totalCell, { color: theme.colors.warning, fontWeight: '800' }]}>
+                    {formatCurrency(dailyData.rows.reduce((sum, r) => sum + r.bhada, 0))}
+                  </Text>
+                  <Text style={[styles.cell, styles.dalaCell, styles.totalCell, { color: theme.colors.negative, fontWeight: '800' }]}>
+                    {formatCurrency(dailyData.rows.reduce((sum, r) => sum + r.dala, 0))}
+                  </Text>
+                  <Text style={[styles.cell, styles.influencerCell, styles.totalCell]}>—</Text>
+                </View>
+              )}
             </View>
           </ScrollView>
         )}
@@ -371,7 +456,9 @@ const styles = StyleSheet.create({
   nameCell: { width: 120 },
   productsCell: { width: 150 },
   addressCell: { width: 140 },
-  creditCell: { width: 70, fontWeight: '600' },
+  cashCell: { width: 70, fontWeight: '600' },
+  upiCell: { width: 70, fontWeight: '600' },
+  udharCell: { width: 70, fontWeight: '600' },
   bhadaCell: { width: 70, fontWeight: '600' },
   dalaCell: { width: 70, fontWeight: '600' },
   influencerCell: { width: 140 },
@@ -392,4 +479,35 @@ const styles = StyleSheet.create({
   },
   cashSummaryLabel: { color: theme.colors.muted, fontSize: 13, fontWeight: '600' },
   cashSummaryValue: { fontSize: 16, fontWeight: '800' },
+
+  totalRow: {
+    backgroundColor: theme.colors.primary + '20',
+    borderTopWidth: 3,
+    borderTopColor: theme.colors.primary,
+    borderBottomWidth: 3,
+    borderBottomColor: theme.colors.primary,
+  },
+  totalCell: {
+    fontWeight: '700',
+    backgroundColor: theme.colors.primary + '10',
+  },
+
+  actionButtons: {
+    flexDirection: 'row',
+    gap: 10,
+    alignItems: 'center',
+  },
+  exportButton: {
+    paddingHorizontal: 12,
+    paddingVertical: 9,
+    borderRadius: 10,
+    backgroundColor: theme.colors.accent + '20' || '#10B98120',
+    borderWidth: 1,
+    borderColor: theme.colors.accent || '#10B981',
+  },
+  exportButtonText: {
+    color: theme.colors.accent || '#10B981',
+    fontSize: 12,
+    fontWeight: '700',
+  },
 });
