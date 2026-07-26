@@ -46,6 +46,7 @@ export function BillingScreen({ navigation }: Props) {
   const [upiPaid, setUpiPaid] = useState('');
   const [influencerName, setInfluencerName] = useState('');
   const [influencerContact, setInfluencerContact] = useState('');
+  const [amountPaidToInfluencer, setAmountPaidToInfluencer] = useState(''); // Admin tracks payment to influencer
   const [upiAccount, setUpiAccount] = useState<'Firm' | 'Personal'>('Firm');
   const [employeeName, setEmployeeName] = useState('');
   const [invoiceNumber, setInvoiceNumber] = useState('');
@@ -159,6 +160,7 @@ export function BillingScreen({ navigation }: Props) {
       upiPaid: parseWholeNumberInput(upiPaid) || undefined,
       influencerName: influencerName || undefined,
       influencerContact: influencerContact || undefined,
+      amountPaidToInfluencer: parseWholeNumberInput(amountPaidToInfluencer) || undefined,
       upiAccount: paymentMode === 'UPI' ? upiAccount : undefined,
       employeeName: employeeName || undefined,
       invoiceNumber: invoiceNumber || undefined,
@@ -182,6 +184,7 @@ export function BillingScreen({ navigation }: Props) {
       upiPaid: pendingInvoiceData.upiPaid,
       influencerName: pendingInvoiceData.influencerName,
       influencerContact: pendingInvoiceData.influencerContact,
+      amountPaidToInfluencer: pendingInvoiceData.amountPaidToInfluencer,
       upiAccount: pendingInvoiceData.upiAccount,
       employeeName: pendingInvoiceData.employeeName,
       invoiceNumber: pendingInvoiceData.invoiceNumber,
@@ -198,6 +201,7 @@ export function BillingScreen({ navigation }: Props) {
       setUpiPaid('');
       setInfluencerName('');
       setInfluencerContact('');
+      setAmountPaidToInfluencer('');
       setUpiAccount('Firm');
       setEmployeeName('');
       setInvoiceNumber('');

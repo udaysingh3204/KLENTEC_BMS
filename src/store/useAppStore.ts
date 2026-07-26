@@ -69,6 +69,7 @@ type CreateInvoiceInput = {
   upiPaid?: number;
   influencerName?: string;
   influencerContact?: string;
+  amountPaidToInfluencer?: number; // Admin tracks payment made to influencer
   upiAccount?: UPIAccount;
   employeeName?: string;
   invoiceNumber?: string;
@@ -717,7 +718,7 @@ export const useAppStore = create<AppState>((set, get) => ({
     void persistProducts(nextProducts);
   },
 
-  createInvoice: ({ customerId, lines, paymentMode, reference, bhada, dala, amountPaid, cashPaid, upiPaid, influencerName, influencerContact, upiAccount, employeeName, invoiceNumber, notes }) => {
+  createInvoice: ({ customerId, lines, paymentMode, reference, bhada, dala, amountPaid, cashPaid, upiPaid, influencerName, influencerContact, amountPaidToInfluencer, upiAccount, employeeName, invoiceNumber, notes }) => {
     const state = get();
     const customer = state.customers.find((c) => c.id === customerId);
     if (!customer) {
@@ -775,6 +776,7 @@ export const useAppStore = create<AppState>((set, get) => ({
       upiPaid,
       influencerName,
       influencerContact,
+      amountPaidToInfluencer,
       upiAccount,
       employeeName,
       invoiceNumber,
