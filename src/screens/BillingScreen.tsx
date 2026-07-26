@@ -27,12 +27,13 @@ export function BillingScreen({ navigation }: Props) {
   const products = useAppStore((s) => s.products);
   const allInvoices = useAppStore((s) => s.invoices);
 
-  // Customer creation
+  // Customer creation/editing
   const [customerId, setCustomerId] = useState('');
   const [customerName, setCustomerName] = useState('');
   const [customerPhone, setCustomerPhone] = useState('');
   const [customerAddress, setCustomerAddress] = useState('');
   const [customerCreated, setCustomerCreated] = useState(false);
+  const [editingCustomer, setEditingCustomer] = useState(false); // Allow editing customer details
 
   // Invoice fields
   const [draftLines, setDraftLines] = useState<DraftLine[]>([
@@ -169,8 +170,11 @@ export function BillingScreen({ navigation }: Props) {
     setShowTransactionPopup(true);
   };
 
-  const handleTransactionConfirm = (amountPaid: number, _discrepancy: number) => {
+  const handleTransactionConfirm = (amountPaid: number, _discrepancy: number, dalaValue: number = 0) => {
     if (!pendingInvoiceData) return;
+
+    // Use dala value from popup if edited, otherwise use form value
+    const finalDala = dalaValue > 0 ? dalaValue : pendingInvoiceData.dala;
 
     const result = createInvoice({
       customerId: pendingInvoiceData.customerId,
@@ -178,7 +182,7 @@ export function BillingScreen({ navigation }: Props) {
       paymentMode: pendingInvoiceData.paymentMode,
       reference: pendingInvoiceData.reference,
       bhada: pendingInvoiceData.bhada,
-      dala: pendingInvoiceData.dala,
+      dala: finalDala,
       amountPaid,
       cashPaid: pendingInvoiceData.cashPaid,
       upiPaid: pendingInvoiceData.upiPaid,
@@ -285,11 +289,54 @@ export function BillingScreen({ navigation }: Props) {
                 <Text style={styles.createCustomerButtonText}>Create Customer</Text>
               </Pressable>
             </>
+          ) : editingCustomer ? (
+            // Editing customer details
+            <>
+              <Text style={styles.formLabel}>Customer Name *</Text>
+              <TextInput
+                value={customerName}
+                onChangeText={setCustomerName}
+                placeholder="Enter customer name"
+                placeholderTextColor={theme.colors.muted}
+                style={styles.input}
+              />
+
+              <Text style={styles.formLabel}>Phone Number *</Text>
+              <TextInput
+                value={customerPhone}
+                onChangeText={setCustomerPhone}
+                placeholder="Enter phone number"
+                placeholderTextColor={theme.colors.muted}
+                keyboardType="phone-pad"
+                style={styles.input}
+              />
+
+              <Text style={styles.formLabel}>Address *</Text>
+              <TextInput
+                value={customerAddress}
+                onChangeText={setCustomerAddress}
+                placeholder="Enter address"
+                placeholderTextColor={theme.colors.muted}
+                style={styles.input}
+              />
+
+              <View style={styles.editButtonRow}>
+                <Pressable onPress={() => setEditingCustomer(false)} style={[styles.button, { flex: 1, backgroundColor: theme.colors.panelRaised, borderWidth: 1, borderColor: theme.colors.border }]}>
+                  <Text style={{ color: theme.colors.text }}>Cancel</Text>
+                </Pressable>
+                <Pressable onPress={() => setEditingCustomer(false)} style={[styles.button, { flex: 1, backgroundColor: theme.colors.primary, marginLeft: 8 }]}>
+                  <Text style={{ color: '#FFF', fontWeight: '600' }}>Done Editing</Text>
+                </Pressable>
+              </View>
+            </>
           ) : (
             <View style={styles.customerCreatedBox}>
               <Text style={styles.customerCreatedLabel}>✓ Customer Ready</Text>
               <Text style={styles.customerCreatedName}>{customerName}</Text>
               <Text style={styles.customerCreatedMeta}>{customerPhone} • {customerAddress}</Text>
+              <Pressable onPress={() => setEditingCustomer(true)} style={[styles.button, { marginTop: 12, backgroundColor: theme.colors.accent }]}>
+                <Text style={{ color: theme.colors.text, fontWeight: '600' }}>Edit Customer Details</Text>
+              </Pressable>
             </View>
           )}
         </SectionCard>
@@ -333,6 +380,13 @@ export function BillingScreen({ navigation }: Props) {
                     </Pressable>
                   ))}
                 </View>
+
+                {/* Show Gaadi/Vehicle number for reference - NOT shown in final invoice */}
+                {product?.gadiNumber && (
+                  <Text style={[styles.fieldLabel, { color: theme.colors.muted, fontSize: 12, marginTop: 6 }]}>
+                    📦 From Vehicle: {product.gadiNumber}
+                  </Text>
+                )}
 
                 <View style={styles.qtyPriceRow}>
                   <View style={styles.qtyField}>
@@ -630,6 +684,9 @@ export function BillingScreen({ navigation }: Props) {
           visible={showTransactionPopup}
           totalAmount={previewTotal}
           customerName={selectedCustomer.name}
+          bhada={parseWholeNumberInput(bhada)}
+          dala={parseWholeNumberInput(dala)}
+          pastInvoices={allInvoices.filter(inv => inv.customerId === customerId).slice(0, 5)}
           onClose={() => setShowTransactionPopup(false)}
           onConfirm={handleTransactionConfirm}
         />

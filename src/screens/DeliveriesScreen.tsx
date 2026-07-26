@@ -38,7 +38,7 @@ export function DeliveriesScreen({ navigation }: Props) {
   const [editError, setEditError] = useState('');
   const [editSuccess, setEditSuccess] = useState('');
 
-  const canCreate = currentUser?.roleId === 'admin';
+  const canCreate = currentUser?.roleId !== 'delivery'; // Admin and Employee can create deliveries
 
   const pendingCount = deliveries.filter((d) => d.status === 'Pending').length;
   const dispatchedCount = deliveries.filter((d) => d.status === 'Dispatched').length;

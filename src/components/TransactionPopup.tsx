@@ -1,4 +1,5 @@
-import { Modal, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import React from 'react';
 import { theme } from '../theme';
 import { formatCurrency } from '../utils/finance';
 
@@ -8,31 +9,40 @@ type TransactionPopupProps = {
   visible: boolean;
   totalAmount: number;
   customerName: string;
+  bhada?: number;
+  dala?: number;
+  pastInvoices?: any[];
   onClose: () => void;
-  onConfirm: (amountPaid: number, discrepancy: number) => void;
+  onConfirm: (amountPaid: number, discrepancy: number, dalaValue: number) => void;
 };
 
 export function TransactionPopup({
   visible,
   totalAmount,
   customerName,
+  bhada = 0,
+  dala = 0,
+  pastInvoices = [],
   onClose,
   onConfirm,
 }: TransactionPopupProps) {
   const [amountPaid, setAmountPaid] = React.useState(totalAmount.toString());
+  const [editableDala, setEditableDala] = React.useState(dala.toString());
 
   React.useEffect(() => {
     if (visible) {
       setAmountPaid(totalAmount.toString());
+      setEditableDala(dala.toString());
     }
-  }, [visible, totalAmount]);
+  }, [visible, totalAmount, dala]);
 
   const handleConfirm = () => {
     const paid = parseFloat(amountPaid) || 0;
+    const dalaValue = parseFloat(editableDala) || 0;
     const difference = totalAmount - paid;
     const discrepancy = difference < 0 ? Math.abs(difference) : difference;
 
-    onConfirm(paid, discrepancy);
+    onConfirm(paid, discrepancy, dalaValue);
     onClose();
   };
 
@@ -45,60 +55,95 @@ export function TransactionPopup({
     <Modal visible={visible} transparent animationType="fade">
       <View style={styles.overlay}>
         <View style={styles.popup}>
-          <Text style={styles.title}>Transaction Summary</Text>
-          <Text style={styles.subtitle}>{customerName}</Text>
+          <ScrollView showsVerticalScrollIndicator={false} style={{maxHeight: 600}}>
+            <Text style={styles.title}>Transaction Summary</Text>
+            <Text style={styles.subtitle}>{customerName}</Text>
 
-          {/* Totals */}
-          <View style={styles.section}>
-            <View style={styles.row}>
-              <Text style={styles.label}>Total Amount Due:</Text>
-              <Text style={styles.value}>{formatCurrency(totalAmount)}</Text>
-            </View>
-            <View style={styles.row}>
-              <Text style={styles.label}>Amount Paid by Customer:</Text>
-              <TextInput
-                style={styles.amountInput}
-                value={amountPaid}
-                onChangeText={setAmountPaid}
-                keyboardType="decimal-pad"
-                placeholder="0"
-              />
-            </View>
-          </View>
+            {/* Totals */}
+            <View style={styles.section}>
+              <View style={styles.row}>
+                <Text style={styles.label}>Total Amount Due:</Text>
+                <Text style={styles.value}>{formatCurrency(totalAmount)}</Text>
+              </View>
+              <View style={styles.row}>
+                <Text style={styles.label}>Amount Paid by Customer:</Text>
+                <TextInput
+                  style={styles.amountInput}
+                  value={amountPaid}
+                  onChangeText={setAmountPaid}
+                  keyboardType="decimal-pad"
+                  placeholder="0"
+                />
+              </View>
 
-          {/* Discrepancy Info */}
-          {difference !== 0 && (
-            <View style={[
-              styles.discrepancyBox,
-              difference < 0 ? styles.overpaidBox : styles.underpaidBox
-            ]}>
-              <Text style={styles.discrepancyLabel}>
-                {difference < 0 ? 'Customer Overpaid' : 'Underpaid'}
-              </Text>
-              <Text style={[
-                styles.discrepancyAmount,
-                difference < 0 ? styles.overpaidAmount : styles.underpaidAmount
+              {/* Editable Dala Field */}
+              <View style={styles.row}>
+                <Text style={styles.label}>Dala (Worker/Driver Payment) *:</Text>
+                <TextInput
+                  style={styles.amountInput}
+                  value={editableDala}
+                  onChangeText={setEditableDala}
+                  keyboardType="decimal-pad"
+                  placeholder="0"
+                />
+              </View>
+            </View>
+
+            {/* Discrepancy Info */}
+            {difference !== 0 && (
+              <View style={[
+                styles.discrepancyBox,
+                difference < 0 ? styles.overpaidBox : styles.underpaidBox
               ]}>
-                {formatCurrency(discrepancyValue)}
-              </Text>
-              {shouldRecordAsDebit && (
-                <Text style={styles.willRecordText}>
-                  ⚠️ This will be recorded as a debit
+                <Text style={styles.discrepancyLabel}>
+                  {difference < 0 ? 'Customer Overpaid' : 'Underpaid (Udhar)'}
                 </Text>
-              )}
-              {!shouldRecordAsDebit && (
-                <Text style={styles.willIgnoreText}>
-                  ✓ Below ₹{DISCREPANCY_THRESHOLD} threshold — will be rounded off
+                <Text style={[
+                  styles.discrepancyAmount,
+                  difference < 0 ? styles.overpaidAmount : styles.underpaidAmount
+                ]}>
+                  {formatCurrency(discrepancyValue)}
                 </Text>
-              )}
-            </View>
-          )}
+                {shouldRecordAsDebit && (
+                  <Text style={styles.willRecordText}>
+                    ⚠️ This will be recorded as outstanding (Udhar)
+                  </Text>
+                )}
+                {!shouldRecordAsDebit && (
+                  <Text style={styles.willIgnoreText}>
+                    ✓ Below ₹{DISCREPANCY_THRESHOLD} threshold — will be rounded off
+                  </Text>
+                )}
+              </View>
+            )}
 
-          {/* Amount Received Note */}
-          <View style={styles.receivedBox}>
-            <Text style={styles.receivedLabel}>Shopkeeper Received:</Text>
-            <Text style={styles.receivedAmount}>{formatCurrency(paid)}</Text>
-          </View>
+            {/* Amount Received Note */}
+            <View style={styles.receivedBox}>
+              <Text style={styles.receivedLabel}>Shopkeeper Received:</Text>
+              <Text style={styles.receivedAmount}>{formatCurrency(paid)}</Text>
+            </View>
+
+            {/* Past Invoices */}
+            {pastInvoices && pastInvoices.length > 0 && (
+              <View style={styles.pastInvoicesSection}>
+                <Text style={styles.pastInvoicesTitle}>📋 Last Bills Paid ({pastInvoices.length})</Text>
+                {pastInvoices.slice(0, 5).map((inv, idx) => (
+                  <View key={inv.id} style={styles.pastInvoiceItem}>
+                    <View style={styles.pastInvoiceLeft}>
+                      <Text style={styles.pastInvoiceNumber}>INV #{(idx + 1).toString().padStart(3, '0')}</Text>
+                      <Text style={styles.pastInvoiceDate}>{new Date(inv.createdAt).toLocaleDateString()}</Text>
+                    </View>
+                    <View style={styles.pastInvoiceRight}>
+                      <Text style={styles.pastInvoiceAmount}>{formatCurrency(inv.total)}</Text>
+                      <Text style={[styles.pastInvoiceStatus, inv.amountPaid === inv.total ? styles.paidStatus : styles.partialStatus]}>
+                        {inv.amountPaid === inv.total ? '✓ Paid' : `Udhar: ${formatCurrency(inv.udhar || 0)}`}
+                      </Text>
+                    </View>
+                  </View>
+                ))}
+              </View>
+            )}
+          </ScrollView>
 
           {/* Buttons */}
           <View style={styles.buttons}>
@@ -106,7 +151,7 @@ export function TransactionPopup({
               <Text style={styles.cancelButtonText}>Cancel</Text>
             </Pressable>
             <Pressable onPress={handleConfirm} style={styles.confirmButton}>
-              <Text style={styles.confirmButtonText}>Confirm & Save</Text>
+              <Text style={styles.confirmButtonText}>✓ Save Invoice</Text>
             </Pressable>
           </View>
         </View>
@@ -114,8 +159,6 @@ export function TransactionPopup({
     </Modal>
   );
 }
-
-import React from 'react';
 
 const styles = StyleSheet.create({
   overlay: {
@@ -130,7 +173,8 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     padding: 20,
     width: '100%',
-    maxWidth: 380,
+    maxWidth: 400,
+    maxHeight: '85%',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.15,
@@ -236,6 +280,58 @@ const styles = StyleSheet.create({
     fontSize: 20,
     fontWeight: '800',
     color: theme.colors.primary,
+  },
+  pastInvoicesSection: {
+    backgroundColor: theme.colors.panelRaised,
+    borderRadius: 12,
+    padding: 14,
+    marginBottom: 16,
+    gap: 10,
+  },
+  pastInvoicesTitle: {
+    color: theme.colors.text,
+    fontSize: 13,
+    fontWeight: '700',
+    marginBottom: 8,
+  },
+  pastInvoiceItem: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: theme.colors.border,
+  },
+  pastInvoiceLeft: {
+    gap: 4,
+  },
+  pastInvoiceNumber: {
+    color: theme.colors.text,
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  pastInvoiceDate: {
+    color: theme.colors.muted,
+    fontSize: 11,
+  },
+  pastInvoiceRight: {
+    alignItems: 'flex-end',
+    gap: 4,
+  },
+  pastInvoiceAmount: {
+    color: theme.colors.text,
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  pastInvoiceStatus: {
+    fontSize: 10,
+    fontWeight: '600',
+  },
+  paidStatus: {
+    color: theme.colors.positive,
+  },
+  partialStatus: {
+    color: theme.colors.negative,
   },
   buttons: {
     flexDirection: 'row',
