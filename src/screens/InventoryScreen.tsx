@@ -24,6 +24,7 @@ export function InventoryScreen({ navigation }: Props) {
   const [category, setCategory] = useState('');
   const [unit, setUnit] = useState('Bag');
   const [price, setPrice] = useState('');
+  const [costPrice, setCostPrice] = useState(''); // Purchase/cost price
   const [stockLeft, setStockLeft] = useState('');
   const [minimumStock, setMinimumStock] = useState('');
   const [gadiNumber, setGadiNumber] = useState(''); // Vehicle tracking for cost baseline
@@ -42,6 +43,7 @@ export function InventoryScreen({ navigation }: Props) {
   const [editCategory, setEditCategory] = useState('');
   const [editUnit, setEditUnit] = useState('');
   const [editPrice, setEditPrice] = useState('');
+  const [editCostPrice, setEditCostPrice] = useState('');
   const [editStockLeft, setEditStockLeft] = useState('');
   const [editMinimumStock, setEditMinimumStock] = useState('');
   const [editGadiNumber, setEditGadiNumber] = useState('');
@@ -73,9 +75,10 @@ export function InventoryScreen({ navigation }: Props) {
       setAddError('All fields are required and must be positive whole numbers.');
       return;
     }
-    const result = addProduct({ name, category, unit, price: parsedPrice, stockLeft: parsedStock, minimumStock: parsedMin, gadiNumber: gadiNumber || undefined });
+    const parsedCostPrice = parseWholeNumberInput(costPrice);
+    const result = addProduct({ name, category, unit, price: parsedPrice, costPrice: parsedCostPrice || undefined, stockLeft: parsedStock, minimumStock: parsedMin, gadiNumber: gadiNumber || undefined });
     if (!result.success) { setAddError(result.message ?? 'Failed.'); return; }
-    setName(''); setCategory(''); setUnit('Bag'); setPrice(''); setStockLeft(''); setMinimumStock(''); setGadiNumber(''); setAddError('');
+    setName(''); setCategory(''); setUnit('Bag'); setPrice(''); setCostPrice(''); setStockLeft(''); setMinimumStock(''); setGadiNumber(''); setAddError('');
   };
 
   const handleAdjust = () => {
@@ -98,6 +101,7 @@ export function InventoryScreen({ navigation }: Props) {
       setEditCategory(product.category);
       setEditUnit(product.unit);
       setEditPrice(product.price.toString());
+      setEditCostPrice(product.costPrice?.toString() || '');
       setEditStockLeft(product.stockLeft.toString());
       setEditMinimumStock(product.minimumStock.toString());
       setEditGadiNumber(product.gadiNumber || '');
@@ -113,12 +117,14 @@ export function InventoryScreen({ navigation }: Props) {
       setEditError('All fields are required and must be positive whole numbers.');
       return;
     }
+    const parsedEditCostPrice = parseWholeNumberInput(editCostPrice);
     const result = editProduct({
       id: editingId!,
       name: editName,
       category: editCategory,
       unit: editUnit,
       price: parsedPrice,
+      costPrice: parsedEditCostPrice || undefined,
       stockLeft: parsedStock,
       minimumStock: parsedMin,
       gadiNumber: editGadiNumber || undefined,
@@ -239,7 +245,8 @@ export function InventoryScreen({ navigation }: Props) {
             <TextInput value={name} onChangeText={setName} placeholder="Product name" placeholderTextColor={theme.colors.muted} style={styles.input} />
             <TextInput value={category} onChangeText={setCategory} placeholder="Category (e.g. Cement, Tiles)" placeholderTextColor={theme.colors.muted} style={styles.input} />
             <TextInput value={unit} onChangeText={setUnit} placeholder="Unit (Bag, Piece, Box)" placeholderTextColor={theme.colors.muted} style={styles.input} />
-            <TextInput value={price} onChangeText={setPrice} placeholder="Unit price (₹)" placeholderTextColor={theme.colors.muted} keyboardType="numeric" style={styles.input} />
+            <TextInput value={price} onChangeText={setPrice} placeholder="Selling price per unit (₹)" placeholderTextColor={theme.colors.muted} keyboardType="numeric" style={styles.input} />
+            <TextInput value={costPrice} onChangeText={setCostPrice} placeholder="Cost/Purchase price per unit (₹)" placeholderTextColor={theme.colors.muted} keyboardType="numeric" style={styles.input} />
             <TextInput value={stockLeft} onChangeText={setStockLeft} placeholder="Opening stock qty" placeholderTextColor={theme.colors.muted} keyboardType="numeric" style={styles.input} />
             <TextInput value={minimumStock} onChangeText={setMinimumStock} placeholder="Minimum stock qty" placeholderTextColor={theme.colors.muted} keyboardType="numeric" style={styles.input} />
             <TextInput value={gadiNumber} onChangeText={setGadiNumber} placeholder="Gaadi/Vehicle number (cost tracking)" placeholderTextColor={theme.colors.muted} style={styles.input} />
@@ -258,7 +265,8 @@ export function InventoryScreen({ navigation }: Props) {
             <TextInput value={editName} onChangeText={setEditName} placeholder="Product name" placeholderTextColor={theme.colors.muted} style={styles.input} />
             <TextInput value={editCategory} onChangeText={setEditCategory} placeholder="Category" placeholderTextColor={theme.colors.muted} style={styles.input} />
             <TextInput value={editUnit} onChangeText={setEditUnit} placeholder="Unit" placeholderTextColor={theme.colors.muted} style={styles.input} />
-            <TextInput value={editPrice} onChangeText={setEditPrice} placeholder="Unit price (₹)" placeholderTextColor={theme.colors.muted} keyboardType="numeric" style={styles.input} />
+            <TextInput value={editPrice} onChangeText={setEditPrice} placeholder="Selling price per unit (₹)" placeholderTextColor={theme.colors.muted} keyboardType="numeric" style={styles.input} />
+            <TextInput value={editCostPrice} onChangeText={setEditCostPrice} placeholder="Cost/Purchase price per unit (₹)" placeholderTextColor={theme.colors.muted} keyboardType="numeric" style={styles.input} />
             <TextInput value={editStockLeft} onChangeText={setEditStockLeft} placeholder="Stock qty" placeholderTextColor={theme.colors.muted} keyboardType="numeric" style={styles.input} />
             <TextInput value={editMinimumStock} onChangeText={setEditMinimumStock} placeholder="Minimum stock qty" placeholderTextColor={theme.colors.muted} keyboardType="numeric" style={styles.input} />
             <TextInput value={editGadiNumber} onChangeText={setEditGadiNumber} placeholder="Gaadi/Vehicle number (cost tracking)" placeholderTextColor={theme.colors.muted} style={styles.input} />

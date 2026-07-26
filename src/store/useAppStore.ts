@@ -118,6 +118,7 @@ type AddProductInput = {
   category: string;
   unit: string;
   price: number;
+  costPrice?: number; // Purchase/cost price
   stockLeft: number;
   minimumStock: number;
   gadiNumber?: string;
@@ -129,6 +130,7 @@ type EditProductInput = {
   category?: string;
   unit?: string;
   price?: number;
+  costPrice?: number; // Purchase/cost price
   stockLeft?: number;
   minimumStock?: number;
   gadiNumber?: string;
@@ -611,6 +613,9 @@ export const useAppStore = create<AppState>((set, get) => ({
     if (input.gadiNumber !== undefined) {
       updated.gadiNumber = input.gadiNumber;
     }
+    if (input.costPrice !== undefined) {
+      updated.costPrice = input.costPrice;
+    }
     const nextProducts = state.products.map((p) => (p.id === input.id ? updated : p));
     const nextActivities = [
       createActivity('Product updated', `${updated.name} details modified.`),
@@ -744,12 +749,21 @@ export const useAppStore = create<AppState>((set, get) => ({
         return { success: false, message: `Not enough stock for ${product.name}. Available: ${currentStock}.` };
       }
       stockUpdates[product.id] = (stockUpdates[product.id] ?? 0) + line.quantity;
+      const unitSellPrice = product.price;
+      const costPricePerUnit = product.costPrice || 0;
+      const lineTotal = calculateInvoiceTotal(unitSellPrice, line.quantity);
+      const lineProfit = (unitSellPrice - costPricePerUnit) * line.quantity;
+      const profitMargin = lineTotal > 0 ? (lineProfit / lineTotal) * 100 : 0;
+
       resolvedLines.push({
         productId: product.id,
         productName: product.name,
         quantity: line.quantity,
-        unitPrice: product.price,
-        lineTotal: calculateInvoiceTotal(product.price, line.quantity),
+        unitPrice: unitSellPrice,
+        costPrice: costPricePerUnit,
+        lineTotal,
+        profit: lineProfit,
+        profitMargin,
       });
     }
 

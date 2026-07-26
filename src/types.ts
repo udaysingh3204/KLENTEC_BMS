@@ -55,7 +55,8 @@ export type Product = {
   name: string;
   category: string;
   unit: string;
-  price: number;
+  price: number; // Current selling price
+  costPrice?: number; // Purchase/cost price (what we bought at)
   stockLeft: number;
   minimumStock: number;
   measurementUnit?: string;
@@ -85,13 +86,15 @@ export type InvoiceLine = {
   productId: string;
   productName: string;
   quantity: number;
-  unitPrice: number;
+  unitPrice: number; // Selling price per unit
+  costPrice?: number; // Purchase/cost price per unit (at time of sale)
   actualPrice?: number;
   adminPrice?: number;
   lineTotal: number;
   volume?: number;
   volumeUnit?: string;
-  profit?: number;
+  profit?: number; // (unitPrice - costPrice) * quantity
+  profitMargin?: number; // (profit / lineTotal) * 100
   materialDetails?: string;
 };
 

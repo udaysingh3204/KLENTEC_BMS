@@ -388,6 +388,32 @@ export function BillingScreen({ navigation }: Props) {
                   </Text>
                 )}
 
+                {/* Cost Price & Profit Display */}
+                {product && (
+                  <View style={{ marginTop: 12, backgroundColor: theme.colors.panelRaised, borderRadius: 8, padding: 10, gap: 6 }}>
+                    <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+                      <Text style={{ color: theme.colors.muted, fontSize: 12 }}>💰 Cost Price:</Text>
+                      <Text style={{ color: theme.colors.text, fontSize: 12, fontWeight: '600' }}>₹{product.costPrice || 0}</Text>
+                    </View>
+                    <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+                      <Text style={{ color: theme.colors.muted, fontSize: 12 }}>📊 Selling Price:</Text>
+                      <Text style={{ color: theme.colors.text, fontSize: 12, fontWeight: '600' }}>₹{product.price}</Text>
+                    </View>
+                    {qty && (
+                      <>
+                        <View style={{ flexDirection: 'row', justifyContent: 'space-between', borderTopWidth: 1, borderTopColor: theme.colors.border, paddingTop: 6, marginTop: 4 }}>
+                          <Text style={{ color: theme.colors.positive, fontSize: 12, fontWeight: '700' }}>✓ Profit/Unit:</Text>
+                          <Text style={{ color: theme.colors.positive, fontSize: 12, fontWeight: '700' }}>₹{Math.max(0, (product.price - (product.costPrice || 0)))}</Text>
+                        </View>
+                        <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+                          <Text style={{ color: theme.colors.positive, fontSize: 12, fontWeight: '700' }}>💵 Total Profit:</Text>
+                          <Text style={{ color: theme.colors.positive, fontSize: 12, fontWeight: '700' }}>₹{Math.max(0, (product.price - (product.costPrice || 0)) * qty)}</Text>
+                        </View>
+                      </>
+                    )}
+                  </View>
+                )}
+
                 <View style={styles.qtyPriceRow}>
                   <View style={styles.qtyField}>
                     <Text style={styles.fieldLabel}>Qty</Text>
