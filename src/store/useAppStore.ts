@@ -119,6 +119,7 @@ type AddProductInput = {
   price: number;
   stockLeft: number;
   minimumStock: number;
+  gadiNumber?: string;
 };
 
 type EditProductInput = {
@@ -129,6 +130,7 @@ type EditProductInput = {
   price?: number;
   stockLeft?: number;
   minimumStock?: number;
+  gadiNumber?: string;
 };
 
 type AddCustomerInput = {
@@ -294,15 +296,29 @@ export const useAppStore = create<AppState>((set, get) => ({
     if (get().isReady) return;
     const snapshot = await loadAppSnapshot();
 
-    // Create default admin user on first launch if no users exist
+    // Create default users on first launch if no users exist
     if (!snapshot.users || snapshot.users.length === 0) {
-      const defaultAdmin: AppUser = {
-        id: 'admin-default',
-        roleId: 'admin',
-        label: 'Admin',
-        pin: '1234',
-      };
-      snapshot.users = [defaultAdmin];
+      const defaultUsers: AppUser[] = [
+        {
+          id: 'admin-default',
+          roleId: 'admin',
+          label: 'Admin',
+          pin: '1234',
+        },
+        {
+          id: 'employee-default',
+          roleId: 'employee',
+          label: 'Employee',
+          pin: '1111',
+        },
+        {
+          id: 'delivery-default',
+          roleId: 'delivery',
+          label: 'Delivery Staff',
+          pin: '2222',
+        },
+      ];
+      snapshot.users = defaultUsers;
     }
 
     set({ ...snapshot, isReady: true });
@@ -590,6 +606,9 @@ export const useAppStore = create<AppState>((set, get) => ({
     if (input.minimumStock !== undefined) {
       if (!isPositiveInteger(input.minimumStock)) return { success: false, message: 'Minimum stock must be a positive whole number.' };
       updated.minimumStock = input.minimumStock;
+    }
+    if (input.gadiNumber !== undefined) {
+      updated.gadiNumber = input.gadiNumber;
     }
     const nextProducts = state.products.map((p) => (p.id === input.id ? updated : p));
     const nextActivities = [

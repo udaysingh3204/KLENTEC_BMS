@@ -26,6 +26,7 @@ export function InventoryScreen({ navigation }: Props) {
   const [price, setPrice] = useState('');
   const [stockLeft, setStockLeft] = useState('');
   const [minimumStock, setMinimumStock] = useState('');
+  const [gadiNumber, setGadiNumber] = useState(''); // Vehicle tracking for cost baseline
   const [addError, setAddError] = useState('');
 
   // Bulk adjust
@@ -43,6 +44,7 @@ export function InventoryScreen({ navigation }: Props) {
   const [editPrice, setEditPrice] = useState('');
   const [editStockLeft, setEditStockLeft] = useState('');
   const [editMinimumStock, setEditMinimumStock] = useState('');
+  const [editGadiNumber, setEditGadiNumber] = useState('');
   const [editError, setEditError] = useState('');
 
   // Search
@@ -71,9 +73,9 @@ export function InventoryScreen({ navigation }: Props) {
       setAddError('All fields are required and must be positive whole numbers.');
       return;
     }
-    const result = addProduct({ name, category, unit, price: parsedPrice, stockLeft: parsedStock, minimumStock: parsedMin });
+    const result = addProduct({ name, category, unit, price: parsedPrice, stockLeft: parsedStock, minimumStock: parsedMin, gadiNumber: gadiNumber || undefined });
     if (!result.success) { setAddError(result.message ?? 'Failed.'); return; }
-    setName(''); setCategory(''); setUnit('Bag'); setPrice(''); setStockLeft(''); setMinimumStock(''); setAddError('');
+    setName(''); setCategory(''); setUnit('Bag'); setPrice(''); setStockLeft(''); setMinimumStock(''); setGadiNumber(''); setAddError('');
   };
 
   const handleAdjust = () => {
@@ -98,6 +100,7 @@ export function InventoryScreen({ navigation }: Props) {
       setEditPrice(product.price.toString());
       setEditStockLeft(product.stockLeft.toString());
       setEditMinimumStock(product.minimumStock.toString());
+      setEditGadiNumber(product.gadiNumber || '');
       setEditError('');
     }
   };
@@ -118,6 +121,7 @@ export function InventoryScreen({ navigation }: Props) {
       price: parsedPrice,
       stockLeft: parsedStock,
       minimumStock: parsedMin,
+      gadiNumber: editGadiNumber || undefined,
     });
     if (!result.success) { setEditError(result.message ?? 'Failed to update.'); return; }
     setEditingId(null);
@@ -238,6 +242,7 @@ export function InventoryScreen({ navigation }: Props) {
             <TextInput value={price} onChangeText={setPrice} placeholder="Unit price (₹)" placeholderTextColor={theme.colors.muted} keyboardType="numeric" style={styles.input} />
             <TextInput value={stockLeft} onChangeText={setStockLeft} placeholder="Opening stock qty" placeholderTextColor={theme.colors.muted} keyboardType="numeric" style={styles.input} />
             <TextInput value={minimumStock} onChangeText={setMinimumStock} placeholder="Minimum stock qty" placeholderTextColor={theme.colors.muted} keyboardType="numeric" style={styles.input} />
+            <TextInput value={gadiNumber} onChangeText={setGadiNumber} placeholder="Gaadi/Vehicle number (cost tracking)" placeholderTextColor={theme.colors.muted} style={styles.input} />
           </View>
           {addError ? <Text style={styles.error}>{addError}</Text> : null}
           <Pressable onPress={handleAddProduct} style={styles.primaryButton}>
@@ -256,6 +261,7 @@ export function InventoryScreen({ navigation }: Props) {
             <TextInput value={editPrice} onChangeText={setEditPrice} placeholder="Unit price (₹)" placeholderTextColor={theme.colors.muted} keyboardType="numeric" style={styles.input} />
             <TextInput value={editStockLeft} onChangeText={setEditStockLeft} placeholder="Stock qty" placeholderTextColor={theme.colors.muted} keyboardType="numeric" style={styles.input} />
             <TextInput value={editMinimumStock} onChangeText={setEditMinimumStock} placeholder="Minimum stock qty" placeholderTextColor={theme.colors.muted} keyboardType="numeric" style={styles.input} />
+            <TextInput value={editGadiNumber} onChangeText={setEditGadiNumber} placeholder="Gaadi/Vehicle number (cost tracking)" placeholderTextColor={theme.colors.muted} style={styles.input} />
           </View>
           {editError ? <Text style={styles.error}>{editError}</Text> : null}
           <View style={styles.modalButtonRow}>
