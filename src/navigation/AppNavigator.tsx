@@ -8,6 +8,7 @@ import { DashboardScreen } from '../screens/DashboardScreen';
 import { DailyHisaabScreen } from '../screens/DailyHisaabScreen';
 import { CustomerLedgerScreen } from '../screens/CustomerLedgerScreen';
 import { SalesReportScreen } from '../screens/SalesReportScreen';
+import { TransactionLedgerScreen } from '../screens/TransactionLedgerScreen';
 import { BillingScreen } from '../screens/BillingScreen';
 import { CashFlowScreen } from '../screens/CashFlowScreen';
 import { CustomersScreen } from '../screens/CustomersScreen';
@@ -45,6 +46,7 @@ export function AppNavigator() {
         <Stack.Screen name="DailyLedger" component={DailyHisaabScreen} />
         <Stack.Screen name="CustomerLedger" component={CustomerLedgerScreen} />
         <Stack.Screen name="SalesReport" component={SalesReportScreen} />
+        <Stack.Screen name="TransactionLedger" component={TransactionLedgerScreen} />
         <Stack.Screen name="Inventory" component={InventoryScreen} />
         <Stack.Screen name="Billing" component={BillingScreen} />
         <Stack.Screen name="Customers" component={CustomersScreen} />
