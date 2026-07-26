@@ -753,7 +753,8 @@ export const useAppStore = create<AppState>((set, get) => ({
     }
 
     const linesTotal = resolvedLines.reduce((sum, l) => sum + l.lineTotal, 0);
-    const total = linesTotal + (bhada || 0);
+    const total = linesTotal + (bhada || 0) + (dala || 0);
+    const udhar = total - (amountPaid || 0); // Outstanding balance = total - amount paid
     const profit = total;
     const invoice: Invoice = {
       id: createId('inv'),
@@ -767,6 +768,7 @@ export const useAppStore = create<AppState>((set, get) => ({
       createdAt: new Date().toISOString(),
       lines: resolvedLines,
       amountPaid,
+      udhar,
       bhada,
       dala,
       cashPaid,

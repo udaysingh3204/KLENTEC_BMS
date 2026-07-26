@@ -83,6 +83,13 @@ export function BillingScreen({ navigation }: Props) {
       return;
     }
 
+    // Validate mobile number: 10 digits, starts with 6-9
+    const phoneRegex = /^[6-9]\d{9}$/;
+    if (!phoneRegex.test(customerPhone.trim())) {
+      setError('Invalid mobile number. Must be 10 digits starting with 6-9.');
+      return;
+    }
+
     const result = addCustomer({
       name: customerName.trim(),
       phone: customerPhone.trim(),
