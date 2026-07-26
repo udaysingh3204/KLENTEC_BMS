@@ -59,6 +59,7 @@ export type Product = {
   stockLeft: number;
   minimumStock: number;
   measurementUnit?: string;
+  gadiNumber?: string; // Vehicle/Gaadi number for cost tracking - shown during creation only
 };
 
 export type Customer = {
@@ -96,6 +97,14 @@ export type InvoiceLine = {
 
 export type UPIAccount = 'Firm' | 'Personal';
 
+export type EditHistoryEntry = {
+  timestamp: string;
+  field: string;
+  oldValue: any;
+  newValue: any;
+  editedBy: string;
+};
+
 export type Invoice = {
   id: string;
   customerId: string;
@@ -108,6 +117,7 @@ export type Invoice = {
   total: number;
   createdAt: string;
   amountPaid?: number;
+  udhar?: number; // Outstanding balance = total - amountPaid (admin view only, not shown to customer)
   discrepancy?: number;
   discrepancyMarkedResolved?: boolean;
   priceVariance?: number;
@@ -116,6 +126,7 @@ export type Invoice = {
   dala?: number;
   influencerName?: string;
   influencerContact?: string;
+  amountPaidToInfluencer?: number; // Admin tracks payment made to influencer
   upiAccount?: UPIAccount;
   cashPaid?: number;
   upiPaid?: number;
@@ -124,6 +135,7 @@ export type Invoice = {
   notes?: string;
   profit?: number;
   status?: 'Pending' | 'Completed' | 'Cancelled';
+  editHistory?: EditHistoryEntry[]; // Track all edits for audit trail
 };
 
 export type AppUser = {
@@ -182,6 +194,15 @@ export type GoodsSale = {
   notes?: string;
 };
 
+export type InfluencerPayment = {
+  id: string;
+  influencerId: string;
+  amount: number;
+  paymentDate: string;
+  notes?: string;
+  invoiceReference?: string;
+};
+
 export type Influencer = {
   id: string;
   name: string;
@@ -190,7 +211,9 @@ export type Influencer = {
   commissionRate: number;
   totalReferrals: number;
   totalCommissionEarned: number;
+  totalAmountPaid?: number; // Admin tracks actual payments made to influencer
   status: 'Active' | 'Inactive';
   notes?: string;
   createdAt: string;
+  paymentHistory?: InfluencerPayment[];
 };
