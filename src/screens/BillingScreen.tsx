@@ -388,35 +388,25 @@ export function BillingScreen({ navigation }: Props) {
                   </Text>
                 )}
 
-                {/* Cost Price & Profit Display */}
+                {/* PRICING INFO - Cost Price & Admin Set Price */}
                 {product && (
-                  <View style={{ marginTop: 12, backgroundColor: theme.colors.panelRaised, borderRadius: 8, padding: 10, gap: 6 }}>
-                    <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
-                      <Text style={{ color: theme.colors.muted, fontSize: 12 }}>💰 Cost Price:</Text>
-                      <Text style={{ color: theme.colors.text, fontSize: 12, fontWeight: '600' }}>₹{product.costPrice || 0}</Text>
+                  <View style={{ marginTop: 12, backgroundColor: theme.colors.panelRaised, borderRadius: 8, padding: 10, gap: 4 }}>
+                    <Text style={{ color: theme.colors.muted, fontSize: 11, fontWeight: '600' }}>COST & ADMIN PRICES</Text>
+                    <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginTop: 4 }}>
+                      <Text style={{ color: theme.colors.muted, fontSize: 12 }}>Cost Price:</Text>
+                      <Text style={{ color: theme.colors.text, fontSize: 12, fontWeight: '600' }}>₹{product.costPrice || 0}/unit</Text>
                     </View>
                     <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
-                      <Text style={{ color: theme.colors.muted, fontSize: 12 }}>📊 Selling Price:</Text>
-                      <Text style={{ color: theme.colors.text, fontSize: 12, fontWeight: '600' }}>₹{product.price}</Text>
+                      <Text style={{ color: theme.colors.muted, fontSize: 12 }}>Admin Price:</Text>
+                      <Text style={{ color: theme.colors.text, fontSize: 12, fontWeight: '600' }}>₹{product.price}/unit</Text>
                     </View>
-                    {qty && (
-                      <>
-                        <View style={{ flexDirection: 'row', justifyContent: 'space-between', borderTopWidth: 1, borderTopColor: theme.colors.border, paddingTop: 6, marginTop: 4 }}>
-                          <Text style={{ color: theme.colors.positive, fontSize: 12, fontWeight: '700' }}>✓ Profit/Unit:</Text>
-                          <Text style={{ color: theme.colors.positive, fontSize: 12, fontWeight: '700' }}>₹{Math.max(0, (product.price - (product.costPrice || 0)))}</Text>
-                        </View>
-                        <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
-                          <Text style={{ color: theme.colors.positive, fontSize: 12, fontWeight: '700' }}>💵 Total Profit:</Text>
-                          <Text style={{ color: theme.colors.positive, fontSize: 12, fontWeight: '700' }}>₹{Math.max(0, (product.price - (product.costPrice || 0)) * qty)}</Text>
-                        </View>
-                      </>
-                    )}
                   </View>
                 )}
 
+                {/* QUANTITY & ACTUAL SELLING PRICE - EDITABLE */}
                 <View style={styles.qtyPriceRow}>
                   <View style={styles.qtyField}>
-                    <Text style={styles.fieldLabel}>Qty</Text>
+                    <Text style={styles.fieldLabel}>Qty *</Text>
                     <TextInput
                       value={line.quantity}
                       onChangeText={(text) =>
@@ -428,11 +418,12 @@ export function BillingScreen({ navigation }: Props) {
                       }
                       keyboardType="numeric"
                       style={styles.qtyInput}
+                      placeholder="0"
                     />
                   </View>
 
                   <View style={styles.priceField}>
-                    <Text style={styles.fieldLabel}>Actual Price (₹)</Text>
+                    <Text style={styles.fieldLabel}>Selling Price/Unit (₹) *</Text>
                     <TextInput
                       value={line.actualPrice ?? ''}
                       onChangeText={(text) =>
@@ -449,9 +440,25 @@ export function BillingScreen({ navigation }: Props) {
                   </View>
                 </View>
 
-                <Text style={styles.lineTotal}>
-                  Line Total: <Text style={styles.lineTotalValue}>{formatCurrency(lineTotal)}</Text>
-                </Text>
+                {/* LINE TOTAL CALCULATION - BLUE BOX */}
+                {qty && (
+                  <View style={{ marginTop: 10, backgroundColor: theme.colors.primary, borderRadius: 8, padding: 12 }}>
+                    <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <View>
+                        <Text style={{ color: '#FFFFFF', fontSize: 12, opacity: 0.9 }}>Qty × Rate</Text>
+                        <Text style={{ color: '#FFFFFF', fontSize: 11, opacity: 0.8, marginTop: 2 }}>
+                          {qty} × ₹{pricePerUnit}
+                        </Text>
+                      </View>
+                      <View style={{ alignItems: 'flex-end' }}>
+                        <Text style={{ color: '#FFFFFF', fontSize: 12, opacity: 0.9 }}>Line Total</Text>
+                        <Text style={{ color: '#FFFFFF', fontSize: 18, fontWeight: '800', marginTop: 2 }}>
+                          {formatCurrency(lineTotal)}
+                        </Text>
+                      </View>
+                    </View>
+                  </View>
+                )}
 
                 {draftLines.length > 1 && (
                   <Pressable onPress={() => removeLine(line.lineId)} style={styles.removeButton}>
